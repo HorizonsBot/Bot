@@ -3,6 +3,8 @@ var router = express.Router();
 var models = require('../models');
 var User = models.User;
 
+
+
 //////////////////////////////// PUBLIC ROUTES ////////////////////////////////
 // Users who are not logged in can see these routes
 
@@ -30,5 +32,8 @@ router.get('/protected', function(req, res, next) {
 });
 
 ///////////////////////////// END OF PRIVATE ROUTES /////////////////////////////
+
+
+router.post('')
 
 module.exports = router;
