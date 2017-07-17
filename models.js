@@ -1,9 +1,9 @@
 var mongoose = require('mongoose');
 
 var userSchema = mongoose.Schema({
-  username: String,
-  password: String,
-  phone: String
+  slackId: String,
+  slackName: String,
+  googleProfileAccess: Boolean,
 });
 
 
@@ -11,5 +11,5 @@ var userSchema = mongoose.Schema({
 User = mongoose.model('User', userSchema);
 
 module.exports = {
-    User:User
+    User: User
 };

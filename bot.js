@@ -51,10 +51,10 @@ rtm.start();
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   console.log('Message:', message);
-  if(message.message.sub_type==='bot_message') {
+  if(message && message.subtype === 'bot_message') {
     return;
   }
-  rtm.sendMessage("hello i am seeing and replytin to your meesage", message.channel);
+  rtm.sendMessage("hello i am seeing and replying to your meesage", message.channel);
   web.chat.postMessage(message.channel, 'Hello there', obj, function(err, res) {
     if (err) {
       console.log('Error:', err);
