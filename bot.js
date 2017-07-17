@@ -1,8 +1,8 @@
-
 var RtmClient = require('@slack/client').RtmClient;
 var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 var WebClient = require('@slack/client').WebClient;
 
+// INTERACTIVE MESSAGE PRACTICE
 var obj = {
     "text": "Would you like to play a game?",
     "attachments": [
@@ -51,10 +51,16 @@ rtm.start();
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   console.log('Message:', message);
-  if(message.message.sub_type==='bot_message') {
+
+  // if its a message from the bot end the loop
+  if(message && message.subtype === 'bot_message') {
     return;
   }
+
+  // sending a regular message
   rtm.sendMessage("hello i am seeing and replytin to your meesage", message.channel);
+
+  // sending an interactive message
   web.chat.postMessage(message.channel, 'Hello there', obj, function(err, res) {
     if (err) {
       console.log('Error:', err);
@@ -62,6 +68,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       console.log('Message sent: ', res);
     }
   });
+
 });
 
 rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
