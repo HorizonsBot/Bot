@@ -4,7 +4,8 @@ var userSchema = mongoose.Schema({
   googleAccount: {
     access_token: String,
     refresh_token: String,
-    profile_ID: String
+    profile_ID: String,
+    expiry_date: Number
   },
   slack_ID: String,
   slack_Username: String,

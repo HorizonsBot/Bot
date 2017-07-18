@@ -89,27 +89,45 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
     console.log('AT THE API.AI REQUEST PART');
 
+    var curTime = Date.now();
+    //console.log("CURRENT TIME " + curTime + ' ' + typeof(curTime));
 
+    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE
+    models.User.findOne({slack_ID: message.user})
+    .then(function(user){
+      if(curTime > user.googleAccount.expiry_date){
+        /* CODE HERE TO REFRESH ACCESS TOKEN */
+      }else{
+        console.log('token still good homie');
 
-    axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
-      "headers": {
-        "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
-      },
+        //create calendar event here
+
+      }
     })
-    .then(function({ data }){
-        console.log(data);
-        if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
-          obj.attachments[0].text = data.result.fulfillment.speech;
-          web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
-            if (err) {
-              console.log('Error:', err);
-            } else {
-              console.log('Message sent: ', res);
-            }
-          });
-        }
 
-      });
+
+    // *** PUT THIS IN A ROUTE AND CALL THE ROUTE HERE
+    // for now we are just working on making an event
+
+    // axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
+    //   "headers": {
+    //     "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+    //   },
+    // })
+    // .then(function({ data }){
+    //     console.log(data);
+    //     if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
+    //       obj.attachments[0].text = data.result.fulfillment.speech;
+    //       web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
+    //         if (err) {
+    //           console.log('Error:', err);
+    //         } else {
+    //           console.log('Message sent: ', res);
+    //         }
+    //       });
+    //     }
+    //
+    //   });
       // =================
 
   }).catch(function(error){

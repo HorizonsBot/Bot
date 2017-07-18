@@ -54,6 +54,7 @@ app.get('/connect/callback', function(req, res){
   oauth2Client.getToken(req.query.code, function (err, tokens) {
     // Now tokens contains an access_token and an optional refresh_token. Save them.
     if (!err) {
+      //console.log("TOKENS " + tokens);
       oauth2Client.setCredentials(tokens);      //why do we need this <<--??
 
       //UPDATE GOOGLE CREDENTIALS FOR USER
@@ -64,7 +65,8 @@ app.get('/connect/callback', function(req, res){
         googleAccount: {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
-          profile_ID: tokens.id_token
+          profile_ID: tokens.id_token,
+          expiry_date: tokens.expiry_date
         }
       })
       .then(function(user){
