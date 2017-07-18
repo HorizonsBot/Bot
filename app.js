@@ -12,6 +12,7 @@ var token = process.env.SLACK_SECRET || '';
 var web = new WebClient(token);
 var rtm = new RtmClient(token);
 var app = express();
+ var plus = google.plus('v1');
 rtm.start();
 
 var OAuth2 = google.auth.OAuth2;
@@ -208,35 +209,33 @@ app.get('/connect/callback', function(req, res){
 
   oauth2Client.getToken(req.query.code, function (err, tokens) {
     // Now tokens contains an access_token and an optional refresh_token. Save them.
-    if (!err) {
-      //console.log("TOKENS " + tokens);
       oauth2Client.setCredentials(tokens);      //why do we need this <<--??
 
-      //UPDATE GOOGLE CREDENTIALS FOR USER
-      var state = JSON.parse(decodeURIComponent(req.query.state))
-      //console.log("STATE " + JSON.stringify(state));
+      plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
-      models.User.findByIdAndUpdate(state.auth_id, {
-        googleAccount: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          profile_ID: tokens.id_token,
-          expiry_date: tokens.expiry_date
-        }
+          //UPDATE GOOGLE CREDENTIALS FOR USER
+          var state = JSON.parse(decodeURIComponent(req.query.state))
+
+          models.User.findByIdAndUpdate(state.auth_id, {
+            googleAccount: {
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token,
+              profile_ID: googleUser.id,
+              expiry_date: tokens.expiry_date,
+              profile_name: googleUser.displayName
+            }
+          })
+          .then(function(user){
+            user.save();
+          })
+          .catch(function(err){
+            console.log('ERROR ' + err);
+          })
       })
-      .then(function(user){
-        user.save();
-      })
-      .catch(function(err){
-        console.log('ERROR ' + err);
-      })
 
-    }
+    });
 
-});
-
-  res.send(200);
-
+    res.send(200);
 })
 
 
