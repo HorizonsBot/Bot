@@ -1,15 +1,25 @@
 var express = require('express');
+var axios = require('axios');
+var bodyParser = require('body-parser');
 var google = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
-var models = require('./models');
-
-// CONNECTING TO MONGOOSE DB
 var mongoose = require('mongoose');
 var models = require('./models');
+var RtmClient = require('@slack/client').RtmClient;
+var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
+var WebClient = require('@slack/client').WebClient;
+
+var token = process.env.SLACK_SECRET || '';
+var web = new WebClient(token);
+var rtm = new RtmClient(token);
+var app = express();
+rtm.start();
+
+var OAuth2 = google.auth.OAuth2;
 mongoose.connect(process.env.MONGODB_URI);
 
+
 // REQUIRED SOURCE CHECKS
-var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI".split(" ");
+var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DOMAIN".split(" ");
 
 REQUIRED_ENV.forEach(function(el) {
   if (!process.env[el]){
@@ -18,19 +28,8 @@ REQUIRED_ENV.forEach(function(el) {
   }
 });
 
-var RtmClient = require('@slack/client').RtmClient;
-var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
-var WebClient = require('@slack/client').WebClient;
 
-
-// RUNNING SERVER
-var app = express();
-var bodyParser = require('body-parser');
-
-/* BOT CODE */
-// INTERACTIVE MESSAGE PRACTICE
-var axios = require('axios');
-
+// INTERACTIVE MESSAGE
 var obj = {
     "attachments": [
         {
@@ -57,19 +56,16 @@ var obj = {
     ]
 }
 
-var token = process.env.SLACK_SECRET || '';
-var web = new WebClient(token);
-var rtm = new RtmClient(token);
-rtm.start();
-
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
+
   var dm = rtm.dataStore.getDMByUserId(message.user);
-  //console.log(dm, message);
+
   if (!dm || dm.id !== message.channel || message.type !== 'message') {
     return;
   }
-  console.log('Message:', message);
+
+  //console.log('Message:', message);
   var temp = encodeURIComponent(message.text);
 
   //CHECK IF THEY ARE IN MONGO AS HAVING REGISTERED GOOGLE
@@ -78,6 +74,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   //CHECK FOR USER OR CREATE ONE
   models.User.findOne({slack_ID: message.user})
   .then(function(user){
+    //SET UP INITIAL SLACK INFO IN MONGO
     if(!user){
       var user = new models.User({
         default_meeting_len: 30,
@@ -92,18 +89,15 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     }
   })
   .then(function(user){
+    //AUTHORIZE GOOGLE ACCOUNT LINK
     if(!user.googleAccount.access_token){
-      //submit the link to grant access
       web.chat.postMessage(message.channel,
         'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
         + user._id);
-
       return;
     }
 
     // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
-    console.log('AT THE API.AI REQUEST PART');
-
     var curTime = Date.now();
     console.log("CURRENT TIME " + curTime);
 
@@ -119,6 +113,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
     })
     .then(function(user){
+      //POST MESSAGE TO GOOGLE CALENDAR
       if(user){
         //create calendar event here
         var new_event = {
@@ -134,11 +129,10 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
         axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
         .then(function(response){
-          //console.log('good');
-          console.log('SUCCESSFULLY POSTED TO CALENDAR');
+            console.log('SUCCESSFULLY POSTED TO CALENDAR');
         })
         .catch(function(err){
-          console.log(err);
+            console.log(err);
         })
       }
 
@@ -208,7 +202,6 @@ app.get('/connect', function(req, res){
   res.redirect(url);
 
 })
-
 
 
 app.get('/connect/callback', function(req, res){
