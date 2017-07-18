@@ -60,6 +60,13 @@ var obj = {
     ]
 }
 
+// PENDING STATE FROM YASH AND MO
+const state = {
+  subject: "",
+  date: ""
+};
+
+
 // LISTENING FOR EVENTS FROM SLACK SOCKET
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
@@ -100,6 +107,16 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       return;
     }
 
+    if(state.date && !state.subject){
+      state.subject = message.text;
+      responseFunction();
+    }else if(state.subject && !state.date){
+      state.date = message.text;
+      responseFunction();
+    } else if(state.date && state.subject){
+      rtm.sendMessage("Reply to previous task status", message.channel);
+    }
+
 // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
     axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
       "headers": {
@@ -107,18 +124,18 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       },
     })
     .then(function({ data }){
-        console.log(data);
-        if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
-          obj.attachments[0].text = data.result.fulfillment.speech;
-          web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
-            if (err) {
-              console.log('Error:', err);
-            } else {
-              console.log('Message sent: ', res);
-            }
-          });
-        }
-
+        // console.log(data);
+        handlerFunction(data, message);
+        // if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
+        //   obj.attachments[0].text = data.result.fulfillment.speech;
+        //   web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
+        //     if (err) {
+        //       console.log('Error:', err);
+        //     } else {
+        //       console.log('Message sent: ', res);
+        //     }
+        //   });
+        // }
       });
 // ================================
 
@@ -168,28 +185,26 @@ app.post('/slack/interactive', function(req, res){
     })
     .then(function(user){
       // POST MESSAGE TO GOOGLE CALENDAR
-      if(user){
-
-        // --->>>>> trying to create event with proper message data here <<<<-----
         var new_event = {
            "end": {
-            "date": "2017-07-19"
+            "date": state.date
            },
            "start": {
-            "date": "2017-07-19"
+            "date": state.date
            },
-           "summary": "EVENT1"
+           "summary": state.subject
         }
 
         axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
         .then(function(response){
             console.log('SUCCESSFULLY POSTED SOME BULLSHITTY EVENT TO CALENDAR');
+            res.send('Event scheduled on your google cal buddie :)');
         })
         .catch(function(err){
             console.log('ERROR POSTING TO GOOGLE CAL', err);
+            res.send('Error posting to your google cal :(')
         })
-      }
-      res.send('Event scheduled on your google cal buddie :)');
+
     })
 
   } else {
@@ -247,6 +262,42 @@ app.get('/connect/callback', function(req, res){
 
     res.send(200);
 })
+
+// LOGIC FOR PENDING STATE
+var handlerFunction = function(data, message){
+  if(data.result.parameters.date && data.result.parameters.subject){
+    console.log('here 1');
+    state.date = data.result.parameters.date;
+    state.subject = data.result.parameters.subject;
+    obj.attachments[0].text = `EVENT: ${state.subject} DATE: ${data.result.parameters.date}`;
+    web.chat.postMessage(message.channel, "Confirm this request", obj, function(err, res) {
+      if (err) {
+        console.log('Error:', err);
+      } else {
+        console.log('Message sent: ', res);
+      }
+    });
+  } else if(data.result.parameters.date){
+    console.log('here 2');
+    state.date = data.result.parameters.date;
+    rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+  } else if(data.result.parameters.subject){
+    console.log('here 3');
+    state.subject = data.result.parameters.subject;
+    rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+  }
+}
+
+var responseFunction = function(){
+  obj.attachments[0].text = `Subject:${state.subject} ===>>> Time:${data.result.parameters.date}`;
+  web.chat.postMessage(message.channel, "Confirm this request", obj, function(err, res){
+    if (err) {
+      console.log('Error:', err);
+    } else {
+      console.log('Message sent: ', res);
+    }
+  })
+}
 
 
 var port = process.env.PORT || 3000;
