@@ -3,6 +3,7 @@ require('./app');
 // CONNECTING TO MONGOOSE DB
 var mongoose = require('mongoose');
 var models = require('./models');
+mongoose.connect(process.env.MONGODB_URI);
 
 
 var RtmClient = require('@slack/client').RtmClient;
@@ -11,7 +12,6 @@ var WebClient = require('@slack/client').WebClient;
 
 
 // INTERACTIVE MESSAGE PRACTICE
-
 var axios = require('axios');
 
 var obj = {
@@ -56,89 +56,61 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   console.log('Message:', message);
   var temp = encodeURIComponent(message.text);
 
-  axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
-    "headers": {
-      "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
-    },
+  //CHECK IF THEY ARE IN MONGO AS HAVING REGISTERED GOOGLE
+  var u = rtm.dataStore.getUserById(message.user);
+
+  //CHECK FOR USER OR CREATE ONE
+  models.User.findOne({slack_ID: message.user})
+  .then(function(user){
+    if(!user){
+      var user = new models.User({
+        slack_ID: message.user,
+        slack_Username: u.profile.real_name,
+        slack_Email: u.profile.email,
+        slack_DM_ID: message.channel
+      })
+      return user.save();
+    }else{
+      return user;
+    }
   })
-  .then(function({ data }){
+  .then(function(user){
+    if(!user.googleAccount.access_token){
+      //submit the link to grant access
+      web.chat.postMessage(message.channel,
+        'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
+        + user._id);
 
-    //CHECK IF THEY ARE IN MONGO AS HAVING REGISTERED GOOGLE
-    mongoose.connection.on('connected', function() {
+      return;
+    }
 
-      //CHECK FOR USER OR CREATE ONE
-      models.User.findOne({slack_ID: message.user}, function(err, user){
-        if(err){
-          console.log('ERR', err);
-        }
-
-        if(!user){
-          //add something to the database
-          var user = new models.User({
-            googleAccount: {
-              access_token: null,
-              refresh_token: null,
-              profile_ID: null
-            },
-            slack_ID: message.user,
-            slack_Username: null,
-            slack_Email: null,
-            slack_DM_ID: null
-          })
-
-          user.save(function(err){
-            if(err){
-              console.log(err)
-            }else{
-              console.log('NO USER EXISTED. CREATED ONE IN DATABASE');
-              models.User.findOne({slack_ID: message.user}, function(err, user){
-                if(err){
-                  console.log('ERR', err);
-                }
-
-                if(user){
-                  web.chat.postMessage(message.channel, 'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id=' + user._id);
-                }
-
-              })
+    // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
+    axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
+      "headers": {
+        "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+      },
+    })
+    .then(function({ data }){
+        console.log(data);
+        if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
+          obj.attachments[0].text = data.result.fulfillment.speech;
+          web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
+            if (err) {
+              console.log('Error:', err);
+            } else {
+              console.log('Message sent: ', res);
             }
           });
-
         }
 
-        //close connection
-        mongoose.connection.close();
-      })
+      });
+      // =================
 
-
-      console.log(data);
-      if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
-        obj.attachments[0].text = data.result.fulfillment.speech;
-        web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
-          if (err) {
-            console.log('Error:', err);
-          } else {
-            console.log('Message sent: ', res);
-          }
-        });
-      }
-
-    });
-
-    mongoose.connection.on('error', function() {
-      console.log('Error connecting to MongoDb.');
-    });
-
-    mongoose.connect(process.env.MONGODB_URI);
-
-
-
-  })
-  .catch(function(error){
+  }).catch(function(error){
       console.log(error);
-    })
-
+  })
 });
+
 
 rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
   console.log('Reaction added:', reaction);

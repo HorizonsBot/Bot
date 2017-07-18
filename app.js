@@ -21,32 +21,36 @@ require('./bot');
 
 
 app.get('/connect', function(req, res){
-  var oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-  );
 
-  var url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
-    scope: [
-      'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/calendar'
-    ],
-    state: encodeURIComponent(JSON.stringify({
-      auth_id: req.query.auth_id
-    }))
-  });
+//IMPLEMENT THIS CORRECTLY
+  // var oauth2Client = new OAuth2(
+  //   process.env.GOOGLE_CLIENT_ID,
+  //   process.env.GOOGLE_CLIENT_SECRET,
+  //   process.env.DOMAIN + '/connect/callback'
+  // );
+  //
+  // var url = oauth2Client.generateAuthUrl({
+  //   access_type: 'offline',
+  //   prompt: 'consent',
+  //   scope: [
+  //     'https://www.googleapis.com/auth/userinfo.profile',
+  //     'https://www.googleapis.com/auth/calendar'
+  //   ],
+  //   state: encodeURIComponent(JSON.stringify({
+  //     auth_id: req.query.auth_id
+  //   }))
+  // });
+  //
+  // res.redirect(url);
 
-  res.redirect(url);
+  res.redirect('/connect/callback')
 })
 
 
 
 app.get('/connect/callback', function(req, res){
 
-
+  res.send(200)
 
 })
 
