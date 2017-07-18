@@ -1,6 +1,4 @@
 var express = require('express');
-var mongoose = require('mongoose');
-var connect = process.env.MONGODB_URI;
 var OAuth2 = require('client-oauth2')
 
 // REQUIRED SOURCE CHECKS
@@ -12,11 +10,6 @@ REQUIRED_ENV.forEach(function(el) {
     process.exit(1);
   }
 });
-
-// CONNECTING TO MONGOOSE DB
-mongoose.connect(connect);
-
-var models = require('./models');
 
 // RUNNING SERVER
 var app = express();
@@ -56,8 +49,6 @@ app.get('/connect/callback', function(req, res){
 
 
 })
-
-
 
 
 var port = process.env.PORT || 3000;
