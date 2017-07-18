@@ -4,29 +4,29 @@ var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 var WebClient = require('@slack/client').WebClient;
 var axios = require('axios');
 var obj = {
-    "attachments": [
+  "attachments": [
+    {
+      "text": "Is this ok?",
+      "fallback": "You are unable to choose a game",
+      "callback_id": "wopr_game",
+      "color": "#3AA3E3",
+      "attachment_type": "default",
+      "actions": [
         {
-            "text": "Is this ok?",
-            "fallback": "You are unable to choose a game",
-            "callback_id": "wopr_game",
-            "color": "#3AA3E3",
-            "attachment_type": "default",
-            "actions": [
-                {
-                    "name": "confrim",
-                    "text": "Yes",
-                    "type": "button",
-                    "value": "yes"
-                },
-                {
-                    "name": "confirm",
-                    "text": "No",
-                    "type": "button",
-                    "value": "no"
-                },
-            ]
-        }
-    ]
+          "name": "confrim",
+          "text": "Yes",
+          "type": "button",
+          "value": "yes"
+        },
+        {
+          "name": "confirm",
+          "text": "No",
+          "type": "button",
+          "value": "no"
+        },
+      ]
+    }
+  ]
 }
 
 
@@ -36,7 +36,10 @@ var web = new WebClient(token);
 var rtm = new RtmClient(token);
 rtm.start();
 
+
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
+
+
   var dm = rtm.dataStore.getDMByUserId(message.user);
   //console.log(dm, message);
   if (!dm || dm.id !== message.channel || message.type !== 'message') {
@@ -51,20 +54,29 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   })
   .then(function({ data }){
     console.log(data);
-    if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
-      obj.attachments[0].text = data.result.fulfillment.speech;
-      web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
-        if (err) {
-          console.log('Error:', err);
-        } else {
-          console.log('Message sent: ', res);
-        }
-      });
+    //if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject)
+    if(data.result.parameters.subject === '') {
+      rtm.sendMessage('Please provide a subject', )
     }
+
+    if(data.result.parameters.date === '' ) {
+
+    }
+
+
+
+    obj.attachments[0].text = data.result.fulfillment.speech;
+    web.chat.postMessage(message.channel, "Confirm this request", obj, function(err, res) {
+      if (err) {
+      } else {
+
+      }
+    });
+
   })
   .catch(function(error){
-      console.log(error);
-    })
+    console.log(error);
+  })
 
 });
 
