@@ -1,9 +1,16 @@
 var mongoose = require('mongoose');
 
 var userSchema = mongoose.Schema({
-  slackId: String,
-  slackName: String,
-  googleProfileAccess: Boolean,
+  googleAccount: {
+    access_token: String,
+    refresh_token: String,
+    profile_ID: String,
+    expiry_date: Number
+  },
+  slack_ID: String,
+  slack_Username: String,
+  slack_Email: String,
+  slack_DM_ID: String
 });
 
 var reminderSchema = mongoose.Schema({
