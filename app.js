@@ -71,8 +71,10 @@ app.get('/connect/callback', function(req, res){
 
 
 app.post('/slack/interactive', function(req, res){
+  
   var payload = JSON.parse(req.body.payload);
   console.log("PAYLOAD", payload);
+  var timeNow = Date.now();
   if(payload.actions[0].value === 'yes') {
     res.send('Created reminder :white_check_mark:');
   }
