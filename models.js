@@ -12,8 +12,6 @@ var userSchema = mongoose.Schema({
   slack_DM_ID: String
 });
 
-
-
 User = mongoose.model('User', userSchema);
 
 module.exports = {
