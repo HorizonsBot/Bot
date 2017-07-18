@@ -1,3 +1,4 @@
+//GIT FROM ATOM
 require('./app');
 
 // CONNECTING TO MONGOOSE DB
@@ -64,6 +65,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   .then(function(user){
     if(!user){
       var user = new models.User({
+        default_meeting_len: 30,
         slack_ID: message.user,
         slack_Username: u.profile.real_name,
         slack_Email: u.profile.email,
