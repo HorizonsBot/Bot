@@ -61,9 +61,6 @@ var state = {
 
 
 var handlerFunction = function(data, message){
-
-  console.log(data);
-
   if(data.result.parameters.date && data.result.parameters.subject){
     console.log('here 1');
     state.date = data.result.parameters.date; state.subject = data.result.parameters.subject;
@@ -84,8 +81,6 @@ var handlerFunction = function(data, message){
     state.subject = data.result.parameters.subject;
     rtm.sendMessage(data.result.fulfillment.speech, message.channel);
   }
-
-  console.log('damn');
 }
 
 var responseFunction = function(){
@@ -106,9 +101,6 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   if (!dm || dm.id !== message.channel || message.type !== 'message') {
     return;
   }
-
-  console.log('Message:', message);
-
 
   ////////////////////////////////////////////////ANDREWS FLOW HERE//////////////////////////////
 
@@ -275,13 +267,13 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         //create calendar event here
         var new_event = {
           "end": {
-            "date": "2017-07-19"
+            "date": state.date
           },
           "start": {
-            "date": "2017-07-19"
+            "date": state.date
           },
-          "description": "you are a gawd",
-          "summary": "EVENT1"
+          "description": "Chief Keef is a fucking legend",
+          "summary": state.subject
         }
 
         axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
