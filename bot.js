@@ -1,47 +1,38 @@
 var RtmClient = require('@slack/client').RtmClient;
 var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 var WebClient = require('@slack/client').WebClient;
+<<<<<<< HEAD
 
 // INTERACTIVE MESSAGE PRACTICE
+=======
+var axios = require('axios');
+>>>>>>> master
 var obj = {
-    "text": "Would you like to play a game?",
     "attachments": [
         {
-            "text": "Choose a game to play",
+            "text": "Is this ok?",
             "fallback": "You are unable to choose a game",
             "callback_id": "wopr_game",
             "color": "#3AA3E3",
             "attachment_type": "default",
             "actions": [
                 {
-                    "name": "game",
-                    "text": "Chess",
+                    "name": "confrim",
+                    "text": "Yes",
                     "type": "button",
-                    "value": "chess"
+                    "value": "yes"
                 },
                 {
-                    "name": "game",
-                    "text": "Falken's Maze",
+                    "name": "confirm",
+                    "text": "No",
                     "type": "button",
-                    "value": "maze"
+                    "value": "no"
                 },
-                {
-                    "name": "game",
-                    "text": "Thermonuclear War",
-                    "style": "danger",
-                    "type": "button",
-                    "value": "war",
-                    "confirm": {
-                        "title": "Are you sure?",
-                        "text": "Wouldn't you prefer a good game of chess?",
-                        "ok_text": "Yes",
-                        "dismiss_text": "No"
-                    }
-                }
             ]
         }
     ]
 }
+
 
 
 var token = process.env.SLACK_SECRET || '';
@@ -50,24 +41,34 @@ var rtm = new RtmClient(token);
 rtm.start();
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
-  console.log('Message:', message);
-
-  // if its a message from the bot end the loop
-  if(message && message.subtype === 'bot_message') {
+  var dm = rtm.dataStore.getDMByUserId(message.user);
+  //console.log(dm, message);
+  if (!dm || dm.id !== message.channel || message.type !== 'message') {
     return;
   }
-
-  // sending a regular message
-  rtm.sendMessage("hello i am seeing and replytin to your meesage", message.channel);
-
-  // sending an interactive message
-  web.chat.postMessage(message.channel, 'Hello there', obj, function(err, res) {
-    if (err) {
-      console.log('Error:', err);
-    } else {
-      console.log('Message sent: ', res);
+  console.log('Message:', message);
+  var temp = encodeURIComponent(message.text);
+  axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
+    "headers": {
+      "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+    },
+  })
+  .then(function({ data }){
+    console.log(data);
+    if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
+      obj.attachments[0].text = data.result.fulfillment.speech;
+      web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
+        if (err) {
+          console.log('Error:', err);
+        } else {
+          console.log('Message sent: ', res);
+        }
+      });
     }
-  });
+  })
+  .catch(function(error){
+      console.log(error);
+    })
 
 });
 
