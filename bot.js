@@ -1,4 +1,4 @@
-require('./app');
+var app = require('./app');
 
 // CONNECTING TO MONGOOSE DB
 var mongoose = require('mongoose');
@@ -50,8 +50,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     console.log('Message not send to DM, ignoring');
     return;
   }
-
-  var temp = encodeURIComponent(message.text);
+  // var temp = encodeURIComponent(message.text);
   //CHECK IF THEY ARE IN MONGO AS HAVING REGISTERED GOOGLE
   var u = rtm.dataStore.getUserById(message.user);
 
@@ -59,30 +58,31 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   User.findOne({slack_ID: message.user})
   .then(function(user){
     if(!user){
-      var user = new models.User({
+      return new User({
         slack_ID: message.user,
+        slack_DM_ID: message.channel,
         slack_Username: u.profile.real_name,
         slack_Email: u.profile.email,
-        slack_DM_ID: message.channel
-      })
-      return user.save();
+      }).save();
     }
     return user;
   })
   .then(function(user){
-    if(!user.googleAccount.access_token){
+    console.log("USER IS", user);
+    if(!user.googleAccount){
       //submit the link to grant access
+      rtm.sendMessage("Hello This is Scheduler bot. In order to schedule reminders for you, I need access to you Google calendar", message.channel);
       web.chat.postMessage(message.channel,
         'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
         + user._id);
         return;
       }
-      // rtm.sendMessage("hello i am seeing and replying to your meesage", message.channel);
+
       axios.get('https://api.api.ai/api/query', {
         params: {
           v: 20150910,
           lang: 'en',
-          timezone: '2017-07-17T16:58:21-0700',
+          // timezone: '2017-07-17T16:58:21-0700',
           query: message.text,
           sessionId: message.user
         },
@@ -91,23 +91,30 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         }
       })
       .then(function( {data} ) {
-        console.log("DATA", data);
+        console.log("DATA", data, "messages", data.result.fulfillment.messages);
         if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject ) {
           // rtm.sendMessage(data.result.fulfillment.speech, message.channel);
-          web.chat.postMessage(message.channel, 'Ok', imReply(data), function(err, res) {
+          web.chat.postMessage(message.channel, 'Chill homie', imReply(data), function(err, res) {
             if (err) {
               console.log('Error:', err);
             } else {
               console.log('Message sent: ', res);
             }
           });
-        } else {
-          console.log("ACTION IS COMPLETE");
+        } else if(data.result.parameters.date){
+          console.log('NO SUBJECT');
+          // state.date = data.result.parameters.date;
+          rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+        } else if(data.result.parameters.subject){
+          console.log('NO DATE');
+          // state.subject = data.result.parameters.subject;
+          rtm.sendMessage(data.result.fulfillment.speech, message.channel);
         }
       })
       .catch(function(err) {
         console.log("ERROR", err);
       })
+
     });
   });
 
@@ -118,3 +125,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
     console.log('Reaction removed:', reaction);
   });
+
+module.exports = {
+  rtm
+};
