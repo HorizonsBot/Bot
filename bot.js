@@ -37,6 +37,11 @@ var rtm = new RtmClient(token);
 rtm.start();
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
+  var dm = rtm.dataStore.getDMByUserId(message.user);
+  //console.log(dm, message);
+  if (!dm || dm.id !== message.channel || message.type !== 'message') {
+    return;
+  }
   console.log('Message:', message);
   var temp = encodeURIComponent(message.text);
   axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
@@ -47,7 +52,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   .then(function({ data }){
     console.log(data);
     if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject){
-      web.chat.postMessage(message.channel, 'Confirm this request', obj,function(err, res) {
+      obj.attachments[0].text = data.result.fulfillment.speech;
+      web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
         if (err) {
           console.log('Error:', err);
         } else {
