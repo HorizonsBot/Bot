@@ -87,6 +87,10 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     }
 
     // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
+    console.log('AT THE API.AI REQUEST PART');
+
+
+
     axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
       "headers": {
         "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"

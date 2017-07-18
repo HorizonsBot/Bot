@@ -1,5 +1,8 @@
 var express = require('express');
-var OAuth2 = require('client-oauth2')
+var google = require('googleapis');
+var OAuth2 = google.auth.OAuth2;
+
+var models = require('./models');
 
 // REQUIRED SOURCE CHECKS
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI".split(" ");
@@ -20,35 +23,61 @@ require('./bot');
 /* ******** */
 
 
+var oauth2Client = new OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.DOMAIN + '/connect/callback'
+);
+
 app.get('/connect', function(req, res){
 
-//IMPLEMENT THIS CORRECTLY
-  // var oauth2Client = new OAuth2(
-  //   process.env.GOOGLE_CLIENT_ID,
-  //   process.env.GOOGLE_CLIENT_SECRET,
-  //   process.env.DOMAIN + '/connect/callback'
-  // );
-  //
-  // var url = oauth2Client.generateAuthUrl({
-  //   access_type: 'offline',
-  //   prompt: 'consent',
-  //   scope: [
-  //     'https://www.googleapis.com/auth/userinfo.profile',
-  //     'https://www.googleapis.com/auth/calendar'
-  //   ],
-  //   state: encodeURIComponent(JSON.stringify({
-  //     auth_id: req.query.auth_id
-  //   }))
-  // });
-  //
-  // res.redirect(url);
+  var url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/calendar'
+    ],
+    state: encodeURIComponent(JSON.stringify({
+      auth_id: req.query.auth_id
+    }))
+  });
 
-  res.redirect('/connect/callback')
+  res.redirect(url);
+
 })
 
 
 
 app.get('/connect/callback', function(req, res){
+
+  oauth2Client.getToken(req.query.code, function (err, tokens) {
+    // Now tokens contains an access_token and an optional refresh_token. Save them.
+    if (!err) {
+      oauth2Client.setCredentials(tokens);      //why do we need this <<--??
+
+      //UPDATE GOOGLE CREDENTIALS FOR USER
+      var state = JSON.parse(decodeURIComponent(req.query.state))
+      //console.log("STATE " + JSON.stringify(state));
+
+      models.User.findByIdAndUpdate(state.auth_id, {
+        googleAccount: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          profile_ID: tokens.id_token
+        }
+      })
+      .then(function(user){
+        user.save();
+      })
+      .catch(function(err){
+        console.log('ERROR ' + err);
+      })
+
+    }
+
+});
+
 
   res.send(200)
 
