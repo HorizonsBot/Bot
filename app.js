@@ -1,6 +1,8 @@
 var express = require('express');
 var google = require('googleapis');
-var OAuth2 = require('client-oauth2')
+// var OAuth2 = require('client-oauth2')
+var OAuth2 = google.auth.OAuth2;
+var models = require('./models');
 
 // REQUIRED SOURCE CHECKS
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI".split(" ");
@@ -19,6 +21,7 @@ var bodyParser = require('body-parser');
 /* BOT CODE */
 require('./bot');
 /* ******** */
+
 var oauth2Client = new OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -37,15 +40,31 @@ app.get('/connect', function(req, res){
       auth_id: req.query.auth_id
     }))     // Optional property that passes state parameters to redirect URI
   });
-  res.redirect('/connect/callback')
+  // console.log(url);
+  res.redirect(url);
 })
 
 app.get('/connect/callback', function(req, res){
-  oauth2Client.getToken(code, function (err, tokens) {
+  oauth2Client.getToken(req.query.code, function (err, tokens) {
+    console.log(tokens);
   // Now tokens contains an access_token and an optional refresh_token. Save them.
   if (!err) {
     oauth2Client.setCredentials(tokens);
   }
+  var state = JSON.parse(decodeURIComponent(req.query.state));
+  models.User.findByIdAndUpdate(state.auth_id, {
+    googleAccount: {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      profile_ID: tokens.id_token
+    }
+  })
+  .then(function(user){
+    user.save();
+  })
+  .catch(function(err){
+    console.log("Error", err);
+  })
 });
   res.send(200)
 })

@@ -2,8 +2,8 @@ require('./app');
 
 // CONNECTING TO MONGOOSE DB
 var mongoose = require('mongoose');
-var models = require('./models');
 mongoose.connect(process.env.MONGODB_URI);
+var models = require('./models');
 
 var { RtmClient, WebClient, CLIENT_EVENTS, RTM_EVENTS } = require('@slack/client');
 var axios = require('axios');
