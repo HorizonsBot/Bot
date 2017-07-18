@@ -1,12 +1,12 @@
 var RtmClient = require('@slack/client').RtmClient;
 var RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 var WebClient = require('@slack/client').WebClient;
-<<<<<<< HEAD
+
 
 // INTERACTIVE MESSAGE PRACTICE
-=======
+
 var axios = require('axios');
->>>>>>> master
+
 var obj = {
     "attachments": [
         {
@@ -48,6 +48,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   }
   console.log('Message:', message);
   var temp = encodeURIComponent(message.text);
+  
   axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{
     "headers": {
       "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
