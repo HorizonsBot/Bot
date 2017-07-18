@@ -2,7 +2,7 @@ var express = require('express');
 var google = require('googleapis');
 // var OAuth2 = require('client-oauth2')
 var OAuth2 = google.auth.OAuth2;
-var models = require('./models');
+var { User } = require('./models');
 
 // REQUIRED SOURCE CHECKS
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI".split(" ");
@@ -17,6 +17,8 @@ REQUIRED_ENV.forEach(function(el) {
 // RUNNING SERVER
 var app = express();
 var bodyParser = require('body-parser');
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 /* BOT CODE */
 require('./bot');
@@ -52,7 +54,7 @@ app.get('/connect/callback', function(req, res){
     oauth2Client.setCredentials(tokens);
   }
   var state = JSON.parse(decodeURIComponent(req.query.state));
-  models.User.findByIdAndUpdate(state.auth_id, {
+  User.findByIdAndUpdate(state.auth_id, {
     googleAccount: {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
@@ -69,9 +71,7 @@ app.get('/connect/callback', function(req, res){
   res.send(200)
 })
 
-
 app.post('/slack/interactive', function(req, res){
-  
   var payload = JSON.parse(req.body.payload);
   console.log("PAYLOAD", payload);
   var timeNow = Date.now();

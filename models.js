@@ -1,4 +1,6 @@
 var mongoose = require('mongoose');
+mongoose.Promise = global.Promise;
+mongoose.connect(process.env.MONGODB_URI);
 
 var userSchema = mongoose.Schema({
   googleAccount: {
@@ -11,8 +13,6 @@ var userSchema = mongoose.Schema({
   slack_Email: String,
   slack_DM_ID: String
 });
-
-
 
 User = mongoose.model('User', userSchema);
 

@@ -3,7 +3,7 @@ require('./app');
 // CONNECTING TO MONGOOSE DB
 var mongoose = require('mongoose');
 mongoose.connect(process.env.MONGODB_URI);
-var models = require('./models');
+var { User } = require('./models');
 
 var { RtmClient, WebClient, CLIENT_EVENTS, RTM_EVENTS } = require('@slack/client');
 var axios = require('axios');
@@ -56,7 +56,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   var u = rtm.dataStore.getUserById(message.user);
 
   //CHECK FOR USER OR CREATE ONE
-  models.User.findOne({slack_ID: message.user})
+  User.findOne({slack_ID: message.user})
   .then(function(user){
     if(!user){
       var user = new models.User({
