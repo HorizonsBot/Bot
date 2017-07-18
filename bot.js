@@ -90,23 +90,48 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     console.log('AT THE API.AI REQUEST PART');
 
     var curTime = Date.now();
-    //console.log("CURRENT TIME " + curTime + ' ' + typeof(curTime));
+    console.log("CURRENT TIME " + curTime);
 
-    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE
+    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
     models.User.findOne({slack_ID: message.user})
     .then(function(user){
       if(curTime > user.googleAccount.expiry_date){
         /* CODE HERE TO REFRESH ACCESS TOKEN */
+        return;
       }else{
         console.log('token still good homie');
-
-        //create calendar event here
-
+        return user;
       }
+    })
+    .then(function(user){
+      if(user){
+        //create calendar event here
+        var new_event = {
+           "end": {
+            "date": "2017-07-19"
+           },
+           "start": {
+            "date": "2017-07-19"
+           },
+           "description": "you are a gawd",
+           "summary": "EVENT1"
+        }
+
+        axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+        .then(function(response){
+          //console.log('good');
+          console.log('RESPONSE FROM POST TO CALENDAR' + response);
+        })
+        .catch(function(err){
+          console.log(err);
+        })
+      }
+
+
     })
 
 
-    // *** PUT THIS IN A ROUTE AND CALL THE ROUTE HERE
+    // *** PUT THIS IN A ROUTE AND CALL THE ROUTE above with the calendar shit
     // for now we are just working on making an event
 
     // axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`,{

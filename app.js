@@ -80,8 +80,7 @@ app.get('/connect/callback', function(req, res){
 
 });
 
-
-  res.send(200)
+  res.send(200);
 
 })
 
