@@ -238,7 +238,6 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   });
 
-
     res.send(`<script>
                 window.close();
               </script>`);
