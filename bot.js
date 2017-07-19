@@ -1,10 +1,9 @@
 var app = require('./app');
 
-// CONNECTING TO MONGOOSE DB
+// CONNECTING TO MONGO_DB
 var mongoose = require('mongoose');
 mongoose.connect(process.env.MONGODB_URI);
 var { User } = require('./models');
-
 var { RtmClient, WebClient, CLIENT_EVENTS, RTM_EVENTS } = require('@slack/client');
 var axios = require('axios');
 
@@ -43,22 +42,27 @@ rtm.on(CLIENT_EVENTS.RTM.AUTHENTICATED, (rtmStartData) => {
   console.log(`logged in as ${rtmStartData.self.name} of team ${rtmStartData.team.name}, but not yet connected to a channel`);
 })
 
+var pendingState = {
+  subject: "",
+  date: ""
+};
+
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   var dm = rtm.dataStore.getDMByUserId(message.user);
-  console.log("DM--------", dm, "MESSAGE", message);
+  console.log("DM--------", dm, "MESSAGE-------", message);
   if (!dm || dm.id !== message.channel || message.type !== 'message') {
     console.log('Message not send to DM, ignoring');
     return;
   }
-  // var temp = encodeURIComponent(message.text);
   //CHECK IF THEY ARE IN MONGO AS HAVING REGISTERED GOOGLE
   var u = rtm.dataStore.getUserById(message.user);
-
   //CHECK FOR USER OR CREATE ONE
   User.findOne({slack_ID: message.user})
   .then(function(user){
+    //SET UP INITIAL SLACK INFO IN MONGO
     if(!user){
       return new User({
+        default_meeting_len: 30,
         slack_ID: message.user,
         slack_DM_ID: message.channel,
         slack_Username: u.profile.real_name,
@@ -70,7 +74,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   .then(function(user){
     console.log("USER IS", user);
     if(!user.googleAccount){
-      //submit the link to grant access
+      //submit the link to grant Google access
       rtm.sendMessage("Hello This is Scheduler bot. In order to schedule reminders for you, I need access to you Google calendar", message.channel);
       web.chat.postMessage(message.channel,
         'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
@@ -90,10 +94,11 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           Authorization: `Bearer ${process.env.API_AI_TOKEN}`
         }
       })
-      .then(function( {data} ) {
-        console.log("DATA", data, "messages", data.result.fulfillment.messages);
+      .then(function( { data } ) {
+        console.log("DATA", data, "DATA-messages", data.result.fulfillment.messages);
         if(!data.result.actionIncomplete && data.result.parameters.date && data.result.parameters.subject ) {
           // rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+          pendingState = data.result.parameters;
           web.chat.postMessage(message.channel, 'Chill homie', imReply(data), function(err, res) {
             if (err) {
               console.log('Error:', err);
@@ -101,15 +106,19 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
               console.log('Message sent: ', res);
             }
           });
-        } else if(data.result.parameters.date){
+        } else if(data.result.parameters.date && !data.result.parameters.subject){
           console.log('NO SUBJECT');
-          // state.date = data.result.parameters.date;
+          pendingState.date = data.result.parameters.date;
           rtm.sendMessage(data.result.fulfillment.speech, message.channel);
-        } else if(data.result.parameters.subject){
+        } else if(data.result.parameters.subject && !data.result.parameters.date){
           console.log('NO DATE');
-          // state.subject = data.result.parameters.subject;
+          pendingState.subject = data.result.parameters.subject;
+          rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+        } else {
           rtm.sendMessage(data.result.fulfillment.speech, message.channel);
         }
+        console.log("HOW IS PENDING STATE LOOKING RIGHT NOW? HMM?", pendingState);
+        return pendingState;
       })
       .catch(function(err) {
         console.log("ERROR", err);
@@ -126,6 +135,9 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     console.log('Reaction removed:', reaction);
   });
 
+console.log("I'M NOT GIVING UP, PEDNING STATE IS HERE", pendingState);
+
 module.exports = {
-  rtm
+  rtm: rtm,
+  pendingState: pendingState
 };
