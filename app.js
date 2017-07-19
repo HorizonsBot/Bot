@@ -1,7 +1,7 @@
 var express = require('express');
 var google = require('googleapis');
 var OAuth2 = google.auth.OAuth2;
-var { User } = require('./models');
+var { User, Reminder } = require('./models');
 var axios = require('axios');
 
 // REQUIRED SOURCE CHECKS
@@ -161,7 +161,6 @@ function getGoogleAuth() {
     process.env.DOMAIN + '/connect/callback'    //redirect url
   );
 }
-var googleAuth = getGoogleAuth();
 
 app.get('/connect', function(req, res){
   var userId = req.query.auth_id;
@@ -193,6 +192,7 @@ app.get('/connect', function(req, res){
 })
 
 app.get('/connect/callback', function(req, res){
+  var googleAuth = getGoogleAuth();
   googleAuth.getToken(req.query.code, function (err, tokens) {
     console.log("HERE ARE THE TOKENS", tokens);    // Now tokens contains an access_token and an optional refresh_token. Save them.
     if (err) {
@@ -242,22 +242,36 @@ app.post('/slack/interactive', function(req, res){
     User.findOne({slack_DM_ID: payload.channel.id})
     .then(function(user){
       console.log("HERE HERE HERE HERE USER IS HERE", user);
+      //console.log("time now ", curTime);
       if(curTime > user.googleAccount.expiry_date){
-        console.log('fuck did i make it here');
-        console.log("BEFORE REFRESHING", user.googleAccount.access_token);
+        console.log("access_token has expired");
+        var googleAuth = getGoogleAuth();
+        googleAuth.setCredentials(user.googleAccount);
         googleAuth.refreshAccessToken(function(err, tokens) {
-          console.log("REFRESHED token", tokens);
-          user.googleAccount.access_token = tokens.access_token;
-        });
-        console.log("AFTER REFRESHING", user.googleAccount.access_token);
-        return;
-      }else{
+           console.log("enters this function first...", tokens);
+           user.googleAccount = tokens;
+           user.save(function(err) {
+             if(err){
+               console.log("blah blah err", err);
+             } else {
+               console.log("no error");
+             }
+             return user;
+           })
+        })
+        .then(function(user){
+           console.log("this is second console before final console", user);
+           return user;
+        })
+        //return user;
+      } else {
         console.log('token still good homie');
         return user;
       }
     })
     .then(function(user){
       //POST MESSAGE TO GOOGLE CALENDAR
+      console.log("final console", user);
       if(user){
         console.log("CHECK PENDING STATE", pendingState);
         //create calendar event here
