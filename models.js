@@ -14,13 +14,14 @@ var userSchema = mongoose.Schema({
 });
 
 var reminderSchema = mongoose.Schema({
+  // slack_DM_ID: String,
   subject: {
     required: true,
     type: String
   },
   day: {
     required: true,
-    type: Date
+    type: String
   },
   googCalID: String,
   reqID: String

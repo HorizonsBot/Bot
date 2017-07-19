@@ -290,3 +290,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   })
 
   app.listen(3000);
+
+module.exports = {
+  rtm
+}
