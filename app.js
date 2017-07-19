@@ -169,27 +169,26 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
     })
 
-  })
+})
 
-  rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
+rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
     console.log('Reaction added:', reaction);
-  });
+});
 
-  rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
+rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
     console.log('Reaction removed:', reaction);
-  });
+});
 
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-  app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(bodyParser.json());
-
-  var oauth2Client = new OAuth2(
+var oauth2Client = new OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.DOMAIN + '/connect/callback'
-  );
+);
 
-  app.get('/connect', function(req, res){
+app.get('/connect', function(req, res){
 
     var url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -205,16 +204,15 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
     res.redirect(url);
 
-  })
+})
 
-
-  app.get('/connect/callback', function(req, res){
+app.get('/connect/callback', function(req, res){
 
     oauth2Client.getToken(req.query.code, function (err, tokens) {
-  // Now tokens contains an access_token and an optional refresh_token. Save them.
-    oauth2Client.setCredentials(tokens);
+      // Now tokens contains an access_token and an optional refresh_token. Save them.
+      oauth2Client.setCredentials(tokens);
 
-    plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
+      plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
         //UPDATE GOOGLE CREDENTIALS FOR USER
         var state = JSON.parse(decodeURIComponent(req.query.state))
@@ -234,23 +232,21 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         .catch(function(err){
           console.log('ERROR ' + err);
         })
-    })
+      })
 
-  });
-
+    });
 
     res.send(`<script>
-                window.close();
-              </script>`);
+      window.close();
+    </script>`);
 
-  })
+})
 
-
-  app.get('/', function(req,res){
+app.get('/', function(req,res){
     res.send("reached home");
-  })
+})
 
-  app.post('/bot-test', function(req,res){
+app.post('/bot-test', function(req,res){
 
     // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
     var curTime = Date.now();
@@ -276,7 +272,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     })
     //this part needs to be moved into the post request
     .then(function(user) {
-    //POST MESSAGE TO GOOGLE CALENDAR
+      //POST MESSAGE TO GOOGLE CALENDAR
       if(user){
         //create calendar event here
         var new_event = {
@@ -327,10 +323,10 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
     res.send(':pray: :100: :fire:')
 
-  })
+})
 
-  app.listen(3000);
+app.listen(3000);
 
 module.exports = {
-  rtm
+    rtm
 }
