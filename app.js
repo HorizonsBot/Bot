@@ -378,6 +378,7 @@ app.post('/bot-test', function(req,res){
           }else{
             //POST MEETING
             meetingPath(user).then((flag) => {
+              console.log("FLAG", flag);
               if(flag){
                 res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
               }else{
@@ -482,12 +483,12 @@ function findAttendees(){
 function meetingPath(user){
 // taskPath(user).then((flag) => {
 
-  if(user){
+    if(user){
     //create calendar meeting here
-    findAttendees().then((attendees) => {
+    return findAttendees()
+    .then((attendees) => {
       console.log('ATTENDEES ARRAY: ', attendees);
-
-
+      
       var new_event = {
         "end": {
           "dateTime": "2017-07-20T12:30:00",
@@ -544,10 +545,10 @@ function meetingPath(user){
       .catch(function(err){
         console.log(err);
       })
-
     })
-
-
+    .then(flag=>{
+      return flag;
+    })
   }
 
 }
