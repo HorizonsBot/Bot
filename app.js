@@ -347,58 +347,165 @@ app.post('/bot-test', function(req,res){
       })
         //this part needs to be moved into the post request
       .then(function(user) {
-          //POST MESSAGE TO GOOGLE CALENDAR
-          if(user){
-            //create calendar event here
-            var new_event = {
-              "end": {
-                "date": state.date
-              },
-              "start": {
-                "date": state.date
-              },
-              "description": "Chief Keef is a fucking legend",
-              "summary": state.subject
-            }
 
-            axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
-            .then(function(response){
-              console.log('SUCCESSFULLY POSTED TO CALENDAR');
-
-              console.log('THIS IS THE INFORMATION THE USER HAS', user);
-              console.log('this is the state', state);
-
-              var reminder = new models.Reminder({
-                subject: state.subject,
-                day: state.date,
-                googCalID: user.googleAccount.profile_ID,
-                reqID: user.slack_ID
-              })
-
-              console.log('this is the REMINDER', reminder);
-
-              reminder.save(function(err) {
-                if(err) {
-                  console.log('there is an error', err);
-                } else {
-                  console.log('YOUNG BUT IM MAKING MILLION TO WORK THE NIGHT SHIFT');
-                }
-              });
-
-              state.date = "";
-              state.time = "";
-              res.send("Your calendar has been updated. " + ':pray: :100: :fire:');
-
-            })
-            .catch(function(err){
-              console.log(err);
-            })
-
+          //POST TASK OR MEETING TO GOOGLE CAL
+          if(/*state.invitees.length === 0*/ false){
+            //POST TASK
+            taskPath(user).then((flag) => {
+              if(flag){
+                res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
+              }else{
+                res.send("Failed to post task to calendar")
+              }
+            });
+          }else{
+            //POST MEETING
+            meetingPath(user).then((flag) => {
+              if(flag){
+                res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+              }else{
+                res.send("Failed to post meeting to calendar")
+              }
+            });
           }
 
       })
     }
 })
+
+function taskPath(user){
+
+    if(user){
+      //create calendar event here
+      var new_event = {
+        "end": {
+          "date": state.date
+        },
+        "start": {
+          "date": state.date
+        },
+        "description": "Chief Keef is a fucking legend",
+        "summary": state.subject
+      }
+      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+      .then(function(response){
+
+        console.log('RESPONSE', response.status);
+        console.log('THIS IS THE INFORMATION THE USER HAS', user);
+        console.log('this is the state', state);
+
+        var reminder = new models.Reminder({
+          subject: state.subject,
+          day: state.date,
+          googCalID: user.googleAccount.profile_ID,
+          reqID: user.slack_ID
+        })
+
+        console.log('this is the REMINDER', reminder);
+
+        reminder.save(function(err) {
+          if(err) {
+            console.log('there is an error', err);
+          } else {
+            console.log('saved reminder in mongo');
+          }
+        });
+
+        state.date = "";
+        state.time = "";
+
+        console.log(typeof response.status);
+
+        if(response.status === 200){
+          console.log('fuck you');
+          return true;
+        }else{
+          console.log('yay');
+          return false;
+        }
+
+
+      })
+      .then(function(flag){
+        console.log("reached here bitch");
+        return flag;
+      })
+      .catch(function(err){
+        console.log(err);
+      })
+    }
+
+}
+
+function meetingPath(user){
+
+  if(user){
+    //create calendar meeting here
+    //dummie data now
+    var new_event = {
+      "end": {
+        "dateTime": "2017-07-20T12:30:00",
+        "timeZone": "America/Los_Angeles"
+      },
+      "start": {
+        "dateTime": "2017-07-20T12:00:00",
+        "timeZone": "America/Los_Angeles"
+      },
+      "summary": "MEETING",
+      "attendees": [
+        {
+         "email": "andrew.eells3@gmail.com"
+        },
+        {
+         "email": "mohammadsyed.kc@gmail.com"
+        }
+      ],
+     "description": "ramma lamma ding dong. as always"
+    }
+    return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+    .then(function(response){
+
+      console.log('RESPONSE', response.status);
+      console.log('THIS IS THE INFORMATION THE USER HAS', user);
+      console.log('this is the state', state);
+
+      var reminder = new models.Reminder({
+        subject: state.subject,
+        day: state.date,
+        googCalID: user.googleAccount.profile_ID,
+        reqID: user.slack_ID
+      })
+
+      console.log('this is the REMINDER', reminder);
+
+      reminder.save(function(err) {
+        if(err) {
+          console.log('there is an error', err);
+        } else {
+          console.log('saved reminder in mongo');
+        }
+      });
+
+      state.date = "";
+      state.time = "";
+
+      if(response.status === 200){
+        return true;
+      }else{
+        return false;
+      }
+
+
+    })
+    .then(function(flag){
+      return flag;
+    })
+    .catch(function(err){
+      console.log(err);
+    })
+  }
+
+}
 
 app.listen(3000);
 
