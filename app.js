@@ -301,6 +301,7 @@ app.post('/bot-test', function(req,res){
     var data = JSON.parse(req.body.payload);
     console.log("*************reached here******************", data);
 
+
     if(data.actions[0].value==="cancel"){
       state.date = "";
       state.time = "";
@@ -320,6 +321,41 @@ app.post('/bot-test', function(req,res){
         }else{
           console.log('token still good homie');
           return user;
+
+    console.log(state);
+    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
+    models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
+    .then(function(user){
+      if(curTime > user.googleAccount.expiry_date){
+        console.log('fuck did i make it here');
+        console.log("TOKENS BEFORE REFRESHING", tokens);
+        oauth2Client.refreshAccessToken(function(err, tokens) {
+          // your access_token is now refreshed and stored in oauth2Client
+          // store these new tokens in a safe place (e.g. database)
+          console.log("REFRESHED TOKENS", tokens);
+          user.googleAccount.access_token = tokens.access_token;
+        });
+        return;
+      }else{
+        console.log('token still good homie');
+        return user;
+      }
+    })
+    //this part needs to be moved into the post request
+    .then(function(user) {
+      //POST MESSAGE TO GOOGLE CALENDAR
+      if(user){
+        //create calendar event here
+        var new_event = {
+          "end": {
+            "date": state.date
+          },
+          "start": {
+            "date": state.date
+          },
+          "description": "Chief Keef is a fucking legend",
+          "summary": state.subject
+
         }
       })
       //this part needs to be moved into the post request
