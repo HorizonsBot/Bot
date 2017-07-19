@@ -33,11 +33,7 @@ var obj = {
   "attachments": [
     {
       "text": "Is this ok?",
-<<<<<<< HEAD
-      "fallback": "You are unable to choose a game",
-=======
       "fallback": "",
->>>>>>> master
       "callback_id": "wopr_game",
       "color": "#3AA3E3",
       "attachment_type": "default",
@@ -347,23 +343,6 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           return user;
         }
       })
-      //this part needs to be moved into the post request
-      .then(function(user) {
-        //POST MESSAGE TO GOOGLE CALENDAR
-        if(user){
-          //create calendar event here
-          var new_event = {
-            "end": {
-              "date": state.date
-            },
-            "start": {
-              "date": state.date
-            },
-            "description": "Chief Keef is a fucking legend",
-            "summary": state.subject
-
-          }
-        })
         //this part needs to be moved into the post request
         .then(function(user) {
           //POST MESSAGE TO GOOGLE CALENDAR
