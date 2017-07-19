@@ -247,7 +247,8 @@ app.get('/connect', function(req, res){
     prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/calendar'
+      'https://www.googleapis.com/auth/calendar',
+      'email'
     ],
     state: encodeURIComponent(JSON.stringify({
       auth_id: req.query.auth_id
@@ -275,7 +276,8 @@ app.get('/connect/callback', function(req, res){
           refresh_token: tokens.refresh_token,
           profile_ID: googleUser.id,
           expiry_date: tokens.expiry_date,
-          profile_name: googleUser.displayName
+          profile_name: googleUser.displayName,
+          email: googleUser.emails[0].value
         }
       })
       .then(function(user){
