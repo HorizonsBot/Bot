@@ -320,10 +320,10 @@ app.post('/bot-test', function(req,res){
       models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
         if(curTime > user.googleAccount.expiry_date){
-          console.log("access_token has expired");
-          var googleAuth = googleAuth();
-          googleAuth.setCredentials(user.googleAccount);
-          googleAuth.refreshAccessToken(function(err, tokens) {
+          console.log("access_token has expired", user);
+          var googleAuthV = googleAuth();
+          googleAuthV.setCredentials(user.googleAccount);
+          googleAuthV.refreshAccessToken(function(err, tokens) {
             console.log("enters this function first...", tokens);
             user.googleAccount = tokens;
             user.save(function(err) {
@@ -339,7 +339,6 @@ app.post('/bot-test', function(req,res){
             console.log("this is second console before final console", user);
             return user;
           })
-          //return user;
         }
         else{
           console.log('token still good homie');
