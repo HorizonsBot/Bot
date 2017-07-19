@@ -180,11 +180,11 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   })
   .then(function(user){
     //AUTHORIZE GOOGLE ACCOUNT LINK
-    if(!user.googleAccount.access_token){
-      web.chat.postMessage(message.channel,
-        'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
-        + user._id);
-        return;
+      if(!user.googleAccount.access_token){
+        web.chat.postMessage(message.channel,
+          'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
+          + user._id);
+          return;
       }
       else {
 
@@ -230,68 +230,64 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 function googleAuth() {
-    return new OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.DOMAIN + '/connect/callback'
-    );
+  return new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.DOMAIN + '/connect/callback'
+  );
 }
 
-  // routes
+// routes
 
 app.get('/connect', function(req, res){
-    var oauth2Client = googleAuth();
-    var url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: [
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/calendar'
-      ],
-      state: encodeURIComponent(JSON.stringify({
-        auth_id: req.query.auth_id
-      }))
-    });
+  var oauth2Client = googleAuth();
+  var url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/calendar',
+      'email'
+    ],
+    state: encodeURIComponent(JSON.stringify({
+      auth_id: req.query.auth_id
+    }))
+  });
 
-    res.redirect(url);
+  res.redirect(url);
 
 })
 
 app.get('/connect/callback', function(req, res){
+  var oauth2Client = googleAuth();
+  oauth2Client.getToken(req.query.code, function (err, tokens) {
+    // Now tokens contains an access_token and an optional refresh_token. Save them.
+    oauth2Client.setCredentials(tokens);
 
-    var oauth2Client = googleAuth();
-    oauth2Client.getToken(req.query.code, function (err, tokens) {
-      // Now tokens contains an access_token and an optional refresh_token. Save them.
-        oauth2Client.setCredentials(tokens);
+    plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
-        plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
+      //UPDATE GOOGLE CREDENTIALS FOR USER
+      var state = JSON.parse(decodeURIComponent(req.query.state))
 
-        //UPDATE GOOGLE CREDENTIALS FOR USER
-        var state = JSON.parse(decodeURIComponent(req.query.state))
-
-        models.User.findByIdAndUpdate(state.auth_id, {
-          googleAccount: {
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            profile_ID: googleUser.id,
-            expiry_date: tokens.expiry_date,
-            profile_name: googleUser.displayName
-          }
-        })
-        .then(function(user){
-          user.save();
-        })
-        .catch(function(err){
-          console.log('ERROR ' + err);
-        })
-
+      models.User.findByIdAndUpdate(state.auth_id, {
+        googleAccount: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          profile_ID: googleUser.id,
+          expiry_date: tokens.expiry_date,
+          profile_name: googleUser.displayName,
+          email: googleUser.emails[0].value
+        }
       })
+      .then(function(user){
+        user.save();
+      })
+      .catch(function(err){
+        console.log('ERROR ' + err);
+      })
+    })
 
-    });
-
-    res.send(`<script>
-      window.close();
-    </script>`);
+  });
 
 })
 
@@ -301,9 +297,9 @@ app.get('/', function(req,res){
 
 app.post('/bot-test', function(req,res){
 
-    var data = JSON.parse(req.body.payload);
-    console.log("*************reached here******************", data);
 
+  var data = JSON.parse(req.body.payload);
+  console.log("*************reached here******************", data);
 
     if(data.actions[0].value==="cancel"){
       state.date = "";
@@ -313,7 +309,6 @@ app.post('/bot-test', function(req,res){
 
     else{
 
-      var curTime = Date.now();
 
       console.log(state);
       //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
