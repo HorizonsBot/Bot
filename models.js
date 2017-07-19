@@ -16,11 +16,11 @@ var userSchema = mongoose.Schema({
 
 var reminderSchema = mongoose.Schema({
   subject: {
-    required: true,
+    // required: true,
     type: String
   },
   day: {
-    required: true,
+    // required: true,
     type: String
   },
   googCalID: String,

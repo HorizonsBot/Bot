@@ -165,7 +165,6 @@ var setInvitees = function(myString){
 }
 
 // slack functions for recieving messages
-
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -210,6 +209,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           if(message.text.indexOf('schedule')!==-1){
             console.log("calling new function");
             message.text = setInvitees(message.text);
+            //message.text is a string of real life names
             console.log("after function call", message.text);
           }
 
@@ -261,7 +261,6 @@ function googleAuth() {
 }
 
 // routes
-
 app.get('/connect', function(req, res){
   var oauth2Client = googleAuth();
   var url = oauth2Client.generateAuthUrl({
@@ -333,8 +332,8 @@ app.post('/bot-test', function(req,res){
 
     else{
 
-
-      console.log(state);
+      var curTime = Date.now();
+      console.log("*****STATE****", state);
       //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
       models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
@@ -364,11 +363,10 @@ app.post('/bot-test', function(req,res){
           return user;
         }
       })
-        //this part needs to be moved into the post request
       .then(function(user) {
 
           //POST TASK OR MEETING TO GOOGLE CAL
-          if(state.invitees.length === 0 /*false*/){
+          if(state.invitees.length === 0){
             //POST TASK
             taskPath(user).then((flag) => {
               if(flag){
@@ -388,6 +386,9 @@ app.post('/bot-test', function(req,res){
             });
           }
 
+      })
+      .catch(function(error){
+        console.log("********error********", error);
       })
     }
 })
@@ -432,6 +433,7 @@ function taskPath(user){
 
         state.date = "";
         state.time = "";
+        state.subject = "";
 
         console.log(typeof response.status);
 
@@ -456,16 +458,21 @@ function taskPath(user){
 
 }
 
+//returns an array of objects with email keys and values. for use in calendar meeting post request
 function findAttendees(){
-  var attendees = [];
 
-  return User.find({ }, function(err, users){
-    users.filter(function(item){
+  return models.User.find({})
+  .then(function(users){
+    var attendees = [];
+
+    users.forEach(function(item){
       var id = item.slack_ID;
+      console.log(item);
       if(state.inviteesBySlackid.indexOf(id) !== -1){
           attendees.push({"email": item.googleAccount.email})
       }
     })
+    console.log('INSIDE FIND ATTENDEES METHOD');
     console.log(attendees);
     return attendees;
   })
@@ -473,75 +480,78 @@ function findAttendees(){
 }
 
 function meetingPath(user){
-
 // taskPath(user).then((flag) => {
 
   if(user){
     //create calendar meeting here
-    var attendees;
     findAttendees().then((attendees) => {
-      attendees = attendees;
-    })
+      console.log('ATTENDEES ARRAY: ', attendees);
 
 
+      var new_event = {
+        "end": {
+          "dateTime": "2017-07-20T12:30:00",
+          "timeZone": "America/Los_Angeles"
+        },
+        "start": {
+          "dateTime": "2017-07-20T12:00:00",
+          "timeZone": "America/Los_Angeles"
+        },
+        "summary": "MEETING",
+        "attendees": attendees,
+       "description": "ramma lamma ding dong. as always"
+      }
+      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+      .then(function(response){
 
-    var new_event = {
-      "end": {
-        "dateTime": "2017-07-20T12:30:00",
-        "timeZone": "America/Los_Angeles"
-      },
-      "start": {
-        "dateTime": "2017-07-20T12:00:00",
-        "timeZone": "America/Los_Angeles"
-      },
-      "summary": "MEETING",
-      "attendees": attendees,
-     "description": "ramma lamma ding dong. as always"
-    }
-    return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
-    .then(function(response){
+        console.log('RESPONSE', response.status);
+        console.log('THIS IS THE INFORMATION THE USER HAS', user);
+        console.log('this is the state', state);
 
-      console.log('RESPONSE', response.status);
-      console.log('THIS IS THE INFORMATION THE USER HAS', user);
-      console.log('this is the state', state);
+        var reminder = new models.Reminder({
+          subject: state.subject,
+          day: state.date,
+          googCalID: user.googleAccount.profile_ID,
+          reqID: user.slack_ID
+        })
 
-      var reminder = new models.Reminder({
-        subject: state.subject,
-        day: state.date,
-        googCalID: user.googleAccount.profile_ID,
-        reqID: user.slack_ID
+        console.log('this is the REMINDER', reminder);
+
+        reminder.save(function(err) {
+          if(err) {
+            console.log('there is an error', err);
+          } else {
+            console.log('saved reminder in mongo');
+          }
+        });
+
+        state.date = "";
+        state.time = "";
+        state.subject="";
+        state.invitees = [];
+
+        if(response.status === 200){
+          return true;
+        }else{
+          return false;
+        }
+
+
+      })
+      .then(function(flag){
+        return flag;
+      })
+      .catch(function(err){
+        console.log(err);
       })
 
-      console.log('this is the REMINDER', reminder);
-
-      reminder.save(function(err) {
-        if(err) {
-          console.log('there is an error', err);
-        } else {
-          console.log('saved reminder in mongo');
-        }
-      });
-
-      state.date = "";
-      state.time = "";
-
-      if(response.status === 200){
-        return true;
-      }else{
-        return false;
-      }
-
-
     })
-    .then(function(flag){
-      return flag;
-    })
-    .catch(function(err){
-      console.log(err);
-    })
+
+
   }
 
 }
+
 
 app.listen(3000);
 
