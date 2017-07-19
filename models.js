@@ -22,8 +22,24 @@ var userSchema = mongoose.Schema({
   slack_Email: String
 });
 
-User = mongoose.model('User', userSchema);
+var reminderSchema = mongoose.Schema({
+  // slack_DM_ID: String,
+  subject: {
+    required: true,
+    type: String
+  },
+  day: {
+    required: true,
+    type: String
+  },
+  googCalID: String,
+  reqID: String
+})
+
+var User = mongoose.model('User', userSchema);
+var Reminder = mongoose.model('Reminder', reminderSchema);
 
 module.exports = {
-    User: User
+    User: User,
+    Reminder: Reminder
 };

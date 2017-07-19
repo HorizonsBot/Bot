@@ -281,7 +281,7 @@ app.post('/slack/interactive', function(req, res){
             subject: pendingState.subject,
             day: pendingState.date,
             googCalID: user.googleAccount.profile_ID,
-            reqID: user._id
+            reqID: user.slack_ID
           })
           console.log('this is the REMINDER', reminder);
           reminder.save(function(err) {
@@ -311,4 +311,6 @@ app.listen(port);
 console.log('Express started. Listening on port %s', port);
 
 
-module.exports = app;
+module.exports = {
+  app, rtm
+};
