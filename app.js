@@ -182,14 +182,17 @@ rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-var oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-);
+function googleAuth() {
+  return new OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.DOMAIN + '/connect/callback'
+  );
+}
+
 
 app.get('/connect', function(req, res){
-
+    var oauth2Client = googleAuth();
     var url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
@@ -207,7 +210,7 @@ app.get('/connect', function(req, res){
 })
 
 app.get('/connect/callback', function(req, res){
-
+    var oauth2Client = googleAuth();
     oauth2Client.getToken(req.query.code, function (err, tokens) {
       // Now tokens contains an access_token and an optional refresh_token. Save them.
       oauth2Client.setCredentials(tokens);
@@ -256,15 +259,26 @@ app.post('/bot-test', function(req,res){
     models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
     .then(function(user){
       if(curTime > user.googleAccount.expiry_date){
-        console.log('fuck did i make it here');
-        console.log("TOKENS BEFORE REFRESHING", tokens);
-        oauth2Client.refreshAccessToken(function(err, tokens) {
-          // your access_token is now refreshed and stored in oauth2Client
-          // store these new tokens in a safe place (e.g. database)
-          console.log("REFRESHED TOKENS", tokens);
-          user.googleAccount.access_token = tokens.access_token;
-        });
-        return;
+        console.log("access_token has expired");
+        var googleAuth = googleAuth();
+        googleAuth.setCredentials(user.googleAccount);
+        googleAuth.refreshAccessToken(function(err, tokens) {
+           console.log("enters this function first...", tokens);
+           user.googleAccount = tokens;
+           user.save(function(err) {
+             if(err){
+               console.log("blah blah err", err);
+             } else {
+               console.log("no error");
+             }
+             return user;
+           })
+        })
+        .then(function(user){
+           console.log("this is second console before final console", user);
+           return user;
+        })
+        //return user;
       }else{
         console.log('token still good homie');
         return user;
