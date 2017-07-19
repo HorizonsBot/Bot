@@ -60,6 +60,7 @@ var state = {
   date: '',
   invitees: [],
   time: '',
+  inviteesBySlackid: []
 }
 
 //task functions
@@ -147,6 +148,22 @@ var meetingFunction = function(data, message){
   }
 }
 
+var setInvitees = function(myString){
+
+  var myArray = myString.split(' ');
+
+  myArray.forEach(function(item,index){
+    if(item[0]==='<'){
+      item = item.substring(2,item.length-1);
+      state.inviteesBySlackid.push(item);
+      //console.log("reached here", item, rtm.dataStore.getUserById(item));
+      myArray[index] = rtm.dataStore.getUserById(item).real_name;
+    }
+  });
+  console.log("this is new function", myArray);
+  return myArray.join(' ');
+}
+
 // slack functions for recieving messages
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
@@ -189,6 +206,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       else {
 
           console.log('the first time it gets here');
+
+          if(message.text.indexOf('schedule')!==-1){
+            console.log("calling new function");
+            message.text = setInvitees(message.text);
+            console.log("after function call", message.text);
+          }
 
           var temp = encodeURIComponent(message.text);
 
@@ -280,7 +303,8 @@ app.get('/connect/callback', function(req, res){
         }
       })
       .then(function(user){
-        user.save();
+        // user.save();
+        res.send('SUCCESSFULLY CONNECTED');
       })
       .catch(function(err){
         console.log('ERROR ' + err);
@@ -344,7 +368,7 @@ app.post('/bot-test', function(req,res){
       .then(function(user) {
 
           //POST TASK OR MEETING TO GOOGLE CAL
-          if(/*state.invitees.length === 0*/ false){
+          if(state.invitees.length === 0 /*false*/){
             //POST TASK
             taskPath(user).then((flag) => {
               if(flag){
@@ -432,11 +456,35 @@ function taskPath(user){
 
 }
 
+function findAttendees(){
+  var attendees = [];
+
+  return User.find({ }, function(err, users){
+    users.filter(function(item){
+      var id = item.slack_ID;
+      if(state.inviteesBySlackid.indexOf(id) !== -1){
+          attendees.push({"email": item.googleAccount.email})
+      }
+    })
+    console.log(attendees);
+    return attendees;
+  })
+
+}
+
 function meetingPath(user){
+
+// taskPath(user).then((flag) => {
 
   if(user){
     //create calendar meeting here
-    //dummie data now
+    var attendees;
+    findAttendees().then((attendees) => {
+      attendees = attendees;
+    })
+
+
+
     var new_event = {
       "end": {
         "dateTime": "2017-07-20T12:30:00",
@@ -447,14 +495,7 @@ function meetingPath(user){
         "timeZone": "America/Los_Angeles"
       },
       "summary": "MEETING",
-      "attendees": [
-        {
-         "email": "andrew.eells3@gmail.com"
-        },
-        {
-         "email": "mohammadsyed.kc@gmail.com"
-        }
-      ],
+      "attendees": attendees,
      "description": "ramma lamma ding dong. as always"
     }
     return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
