@@ -261,6 +261,13 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     .then(function(user){
       if(curTime > user.googleAccount.expiry_date){
         console.log('fuck did i make it here');
+        console.log("TOKENS BEFORE REFRESHING", tokens);
+        oauth2Client.refreshAccessToken(function(err, tokens) {
+          // your access_token is now refreshed and stored in oauth2Client
+          // store these new tokens in a safe place (e.g. database)
+          console.log("REFRESHED TOKENS", tokens);
+          user.googleAccount.access_token = tokens.access_token;
+        });
         return;
       }else{
         console.log('token still good homie');
