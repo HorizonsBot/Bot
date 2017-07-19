@@ -188,59 +188,58 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
       else {
 
-        console.log('the first time it gets here');
+          console.log('the first time it gets here');
 
-        var temp = encodeURIComponent(message.text);
+          var temp = encodeURIComponent(message.text);
 
-        axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
-          "headers": {
-            "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
-          },
-        })
-        .then(function({ data }){
+          axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
+            "headers": {
+              "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+            },
+          })
+          .then(function({ data }){
 
-          if(message.text.indexOf("schedule")!==-1){
-            meetingFunction(data, message);
-          }else{
-            taskFunction(data, message);
-          }
+            if(message.text.indexOf("schedule")!==-1){
+              meetingFunction(data, message);
+            }else{
+              taskFunction(data, message);
+            }
 
-        })
-        .catch(function(error){
-          console.log(error);
-        })
+          })
+          .catch(function(error){
+            console.log(error);
+          })
 
       }
 
     })
-    .catch(function(error){
+  .catch(function(error){
       console.log(error);
-    })
-
   })
+})
 
-  rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
+rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
     console.log('Reaction added:', reaction);
-  });
+});
 
-  rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
+rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
     console.log('Reaction removed:', reaction);
-  });
+});
 
-  app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-  function googleAuth() {
+function googleAuth() {
     return new OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.DOMAIN + '/connect/callback'
     );
-  }
+}
 
   // routes
 
-  app.get('/connect', function(req, res){
+app.get('/connect', function(req, res){
     var oauth2Client = googleAuth();
     var url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -256,15 +255,16 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
     res.redirect(url);
 
-  })
+})
 
-  app.get('/connect/callback', function(req, res){
+app.get('/connect/callback', function(req, res){
+
     var oauth2Client = googleAuth();
     oauth2Client.getToken(req.query.code, function (err, tokens) {
       // Now tokens contains an access_token and an optional refresh_token. Save them.
-      oauth2Client.setCredentials(tokens);
+        oauth2Client.setCredentials(tokens);
 
-      plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
+        plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
         //UPDATE GOOGLE CREDENTIALS FOR USER
         var state = JSON.parse(decodeURIComponent(req.query.state))
@@ -284,6 +284,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         .catch(function(err){
           console.log('ERROR ' + err);
         })
+
       })
 
     });
@@ -292,13 +293,13 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       window.close();
     </script>`);
 
-  })
+})
 
-  app.get('/', function(req,res){
+app.get('/', function(req,res){
     res.send("reached home");
-  })
+})
 
-  app.post('/bot-test', function(req,res){
+app.post('/bot-test', function(req,res){
 
     var data = JSON.parse(req.body.payload);
     console.log("*************reached here******************", data);
@@ -309,6 +310,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       state.time = "";
       res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
     }
+
     else{
 
       var curTime = Date.now();
@@ -338,13 +340,14 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             return user;
           })
           //return user;
-        }else{
+        }
+        else{
           console.log('token still good homie');
           return user;
         }
       })
         //this part needs to be moved into the post request
-        .then(function(user) {
+      .then(function(user) {
           //POST MESSAGE TO GOOGLE CALENDAR
           if(user){
             //create calendar event here
@@ -394,13 +397,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
           }
 
-        })
-      }
-
-    })
-
-    app.listen(3000);
-
-    module.exports = {
-      rtm
+      })
     }
+})
+
+app.listen(3000);
+
+module.exports = {
+      rtm
+}
