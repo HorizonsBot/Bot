@@ -13,6 +13,7 @@ var token = process.env.SLACK_SECRET || '';
 var web = new WebClient(token);
 var rtm = new RtmClient(token);
 var app = express();
+var plus = google.plus('v1')
 rtm.start();
 
 var OAuth2 = google.auth.OAuth2;
@@ -61,8 +62,8 @@ var state = {
 
 
 var handlerFunction = function(data, message){
+  console.log('this is supposed to be the data', data);
   if(data.result.parameters.date && data.result.parameters.subject){
-    console.log('here 1');
     state.date = data.result.parameters.date; state.subject = data.result.parameters.subject;
     obj.attachments[0].text = `Subject:${state.subject} ---- Time:${data.result.parameters.date}`;
     web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
@@ -72,18 +73,22 @@ var handlerFunction = function(data, message){
         console.log('Message sent: ', res);
       }
     });
-  } else if(data.result.parameters.date){
-    console.log('here 2');
-    state.date = data.result.parameters.date;
-    rtm.sendMessage(data.result.fulfillment.speech, message.channel);
   } else if(data.result.parameters.subject){
-    console.log('here 3');
     state.subject = data.result.parameters.subject;
     rtm.sendMessage(data.result.fulfillment.speech, message.channel);
   }
 }
 
-var responseFunction = function(){
+var responseFunction = function(data, message){
+  if(!state.date) {
+    state.date = data.result.parameters.date;
+  }
+
+  if(!state.subject) {
+    state.subject = data.result.parameters.subject
+  }
+
+
   obj.attachments[0].text = `Subject:${state.subject} ---- Time:${data.result.parameters.date}`;
   web.chat.postMessage(message.channel, "Confirm this request", obj, function(err, res){
     if (err) {
@@ -119,7 +124,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         slack_DM_ID: message.channel
       })
       return user.save();
-    }else{
+    } else{
       return user;
     }
   })
@@ -133,15 +138,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         return;
       } else {
 
-        if(state.date && !state.subject){
-          state.subject = message.text;
-          responseFunction();
-        }else if(state.subject && !state.date){
-          state.date = message.text;
-          responseFunction();
-        } else if(state.date && state.subject){
-          rtm.sendMessage("Reply to previous task status", message.channel);
-        }
+        console.log('the first time it gets here');
 
         var temp = encodeURIComponent(message.text);
 
@@ -151,12 +148,23 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           },
         })
         .then(function({ data }){
-          console.log(data);
-          handlerFunction(data, message);
+
+          if(state.subject && !state.date){
+            console.log('I AM MADE, YEAH I MADE It');
+            responseFunction(data, message);
+          } else if(state.date && !state.subject){
+            responseFunction(data, message)
+          } else if(state.date && state.subject){
+            rtm.sendMessage("Reply to previous task status", message.channel);
+          } else {
+            handlerFunction(data, message);
+          }
+
         })
         .catch(function(error){
           console.log(error);
         })
+
       }
 
     })
@@ -203,21 +211,21 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   app.get('/connect/callback', function(req, res){
 
     oauth2Client.getToken(req.query.code, function (err, tokens) {
-      // Now tokens contains an access_token and an optional refresh_token. Save them.
-      if (!err) {
-        //console.log("TOKENS " + tokens);
-        oauth2Client.setCredentials(tokens);      //why do we need this <<--??
+  // Now tokens contains an access_token and an optional refresh_token. Save them.
+    oauth2Client.setCredentials(tokens);
+
+    plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
         //UPDATE GOOGLE CREDENTIALS FOR USER
         var state = JSON.parse(decodeURIComponent(req.query.state))
-        //console.log("STATE " + JSON.stringify(state));
 
         models.User.findByIdAndUpdate(state.auth_id, {
           googleAccount: {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
-            profile_ID: tokens.id_token,
-            expiry_date: tokens.expiry_date
+            profile_ID: googleUser.id,
+            expiry_date: tokens.expiry_date,
+            profile_name: googleUser.displayName
           }
         })
         .then(function(user){
@@ -226,12 +234,14 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         .catch(function(err){
           console.log('ERROR ' + err);
         })
+    })
 
-      }
+  });
 
-    });
 
-    res.send(200);
+    res.send(`<script>
+                window.close();
+              </script>`);
 
   })
 
@@ -245,15 +255,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
     var curTime = Date.now();
 
-    console.log('THIS THE MOFO BODY', JSON.parse(req.body.payload));
-
-
+    console.log(state);
     //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
     models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
     .then(function(user){
-      console.log('I HAVE A USER');
       if(curTime > user.googleAccount.expiry_date){
-        /* CODE HERE TO REFRESH ACCESS TOKEN */
+        console.log('fuck did i make it here');
         return;
       }else{
         console.log('token still good homie');
@@ -262,7 +269,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     })
     //this part needs to be moved into the post request
     .then(function(user) {
-      //POST MESSAGE TO GOOGLE CALENDAR
+    //POST MESSAGE TO GOOGLE CALENDAR
       if(user){
         //create calendar event here
         var new_event = {
@@ -279,6 +286,30 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
         .then(function(response){
           console.log('SUCCESSFULLY POSTED TO CALENDAR');
+
+          console.log('THIS IS THE INFORMATION THE USER HAS', user);
+          console.log('this is the state', state);
+          var reminder = new models.Reminder({
+            subject: state.subject,
+            day: state.date,
+            googCalID: user.googleAccount.profile_ID,
+            reqID: user.slack_ID
+          })
+
+          console.log('this is the REMINDER', reminder);
+          reminder.save(function(err) {
+            if(err) {
+              console.log('there is an error', err);
+            } else {
+              console.log('YOUNG BUT IM MAKING MILLION TO WORK THE NIGHT SHIFT');
+            }
+          });
+
+          state = {
+            date: '',
+            subject: ''
+          }
+
         })
         .catch(function(err){
           console.log(err);
@@ -286,6 +317,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
 
     })
+
+    res.send(':pray: :100: :fire:')
 
   })
 
