@@ -19,7 +19,7 @@ rtm.start();
 var OAuth2 = google.auth.OAuth2;
 mongoose.connect(process.env.MONGODB_URI);
 
-// REQUIRED SOURCE CHECKS
+// REQUIRED SOURCE CHECKIES
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DOMAIN".split(" ");
 
 REQUIRED_ENV.forEach(function(el) {
