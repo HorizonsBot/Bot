@@ -33,7 +33,11 @@ var obj = {
   "attachments": [
     {
       "text": "Is this ok?",
+<<<<<<< HEAD
       "fallback": "You are unable to choose a game",
+=======
+      "fallback": "",
+>>>>>>> master
       "callback_id": "wopr_game",
       "color": "#3AA3E3",
       "attachment_type": "default",
@@ -56,48 +60,98 @@ var obj = {
 }
 
 var state = {
-  subject: "",
-  date: ""
-};
+  subject: '',
+  date: '',
+  invitees: [],
+  time: '',
+}
 
+//task functions
 
-var handlerFunction = function(data, message){
-  console.log('this is supposed to be the data', data);
-  if(data.result.parameters.date && data.result.parameters.subject){
-    state.date = data.result.parameters.date; state.subject = data.result.parameters.subject;
-    obj.attachments[0].text = `Subject:${state.subject} ---- Time:${data.result.parameters.date}`;
-    web.chat.postMessage(message.channel, "Confirm this request", obj,function(err, res) {
+var taskHandler = function({result}, message){
+  if(result.parameters.date && result.parameters.subject){
+    state.date = result.parameters.date; state.subject = result.parameters.subject;
+    obj.attachments[0].text = `Create task to ${state.subject} on ${state.date}`;
+    web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
       if (err) {
         console.log('Error:', err);
       } else {
         console.log('Message sent: ', res);
       }
     });
-  } else if(data.result.parameters.subject){
-    state.subject = data.result.parameters.subject;
-    rtm.sendMessage(data.result.fulfillment.speech, message.channel);
+  } else if(result.parameters.subject){
+    state.subject = result.parameters.subject;
+    rtm.sendMessage(result.fulfillment.speech, message.channel);
+  } else if(result.parameters.date){
+    state.date = result.parameters.date;
+    rtm.sendMessage(result.fulfillment.speech, message.channel)
   }
 }
 
-var responseFunction = function(data, message){
-  if(!state.date) {
-    state.date = data.result.parameters.date;
+var taskFunction = function(data, message){
+  if(!state.date || !state.subject){
+    taskHandler(data, message);
+  } else if(state.date && state.subject){
+    rtm.sendMessage("Reply to previous task status", message.channel);
+  } else {
+    taskHandler(data, message);
   }
+}
 
-  if(!state.subject) {
-    state.subject = data.result.parameters.subject
+//meeting functions
+
+var meetingHandler = function({result}, message){
+
+  // if all present execute if condition else go to else
+
+  if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
+    //set state
+    state.date = result.parameters.date;
+    state.time = result.parameters.time;
+    state.invitees = result.parameters.invitees;
+    //create invite string
+    var inviteString = "";
+    state.invitees.forEach(function(item){
+      inviteString = inviteString + " and " + item;
+    })
+    //create im
+    obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
+    web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
+      if (err) {
+        console.log('Error:', err);
+      } else {
+        console.log('Message sent: ', res);
+      }
+    });
   }
-
-
-  obj.attachments[0].text = `Subject:${state.subject} ---- Time:${data.result.parameters.date}`;
-  web.chat.postMessage(message.channel, "Confirm this request", obj, function(err, res){
-    if (err) {
-      console.log('Error:', err);
-    } else {
-      console.log('Message sent: ', res);
+  else {
+    //check for all parameters
+    if(result.parameters.subject){
+      state.subject = result.parameters.subject;
     }
-  })
+    if(result.parameters.date){
+      state.date = result.parameters.date;
+    }
+    if(result.parameters.time){
+      state.time = result.parameters.time;
+    }
+    if(result.parameters.invitees[0]){
+    }
+    rtm.sendMessage(result.fulfillment.speech, message.channel);
+  }
 }
+
+var meetingFunction = function(data, message){
+  if(!state.date || !state.invitees[0] || !state.time){
+    meetingHandler(data, message);
+  } else if(state.date && state.time && state.invitees[0]){
+    rtm.sendMessage("Reply to previous task status", message.channel);
+  } else {
+    meetingHandler(data, message);
+  }
+}
+
+// slack functions for recieving messages
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
@@ -128,7 +182,6 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       return user;
     }
   })
-  //at this point there is a user model
   .then(function(user){
     //AUTHORIZE GOOGLE ACCOUNT LINK
     if(!user.googleAccount.access_token){
@@ -136,7 +189,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
         + user._id);
         return;
-      } else {
+      }
+      else {
 
         console.log('the first time it gets here');
 
@@ -149,15 +203,10 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         })
         .then(function({ data }){
 
-          if(state.subject && !state.date){
-            console.log('I AM MADE, YEAH I MADE It');
-            responseFunction(data, message);
-          } else if(state.date && !state.subject){
-            responseFunction(data, message)
-          } else if(state.date && state.subject){
-            rtm.sendMessage("Reply to previous task status", message.channel);
-          } else {
-            handlerFunction(data, message);
+          if(message.text.indexOf("schedule")!==-1){
+            meetingFunction(data, message);
+          }else{
+            taskFunction(data, message);
           }
 
         })
@@ -167,6 +216,9 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
       }
 
+    })
+    .catch(function(error){
+      console.log(error);
     })
 
   })
@@ -179,18 +231,21 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     console.log('Reaction removed:', reaction);
   });
 
-
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(bodyParser.json());
 
-  var oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-  );
+  function googleAuth() {
+    return new OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.DOMAIN + '/connect/callback'
+    );
+  }
+
+  // routes
 
   app.get('/connect', function(req, res){
-
+    var oauth2Client = googleAuth();
     var url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
@@ -207,14 +262,13 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   })
 
-
   app.get('/connect/callback', function(req, res){
-
+    var oauth2Client = googleAuth();
     oauth2Client.getToken(req.query.code, function (err, tokens) {
-  // Now tokens contains an access_token and an optional refresh_token. Save them.
-    oauth2Client.setCredentials(tokens);
+      // Now tokens contains an access_token and an optional refresh_token. Save them.
+      oauth2Client.setCredentials(tokens);
 
-    plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
+      plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, googleUser) {
 
         //UPDATE GOOGLE CREDENTIALS FOR USER
         var state = JSON.parse(decodeURIComponent(req.query.state))
@@ -234,92 +288,140 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         .catch(function(err){
           console.log('ERROR ' + err);
         })
-    })
+      })
 
-  });
-
+    });
 
     res.send(`<script>
-                window.close();
-              </script>`);
+      window.close();
+    </script>`);
 
   })
-
 
   app.get('/', function(req,res){
     res.send("reached home");
   })
 
-  app.post('/slack/interactive', function(req,res){
+  app.post('/bot-test', function(req,res){
 
-    // CONNECT TO API.AI NOW THAT YOU HAVE SET UP GOOGLE SHIT
-    var curTime = Date.now();
+    var data = JSON.parse(req.body.payload);
+    console.log("*************reached here******************", data);
 
-    console.log(state);
-    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
-    models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
-    .then(function(user){
-      if(curTime > user.googleAccount.expiry_date){
-        console.log('fuck did i make it here');
-        return;
-      }else{
-        console.log('token still good homie');
-        return user;
-      }
-    })
-    //this part needs to be moved into the post request
-    .then(function(user) {
-    //POST MESSAGE TO GOOGLE CALENDAR
-      if(user){
-        //create calendar event here
-        var new_event = {
-          "end": {
-            "date": state.date
-          },
-          "start": {
-            "date": state.date
-          },
-          "description": "Chief Keef is a fucking legend",
-          "summary": state.subject
-        }
 
-        axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
-        .then(function(response){
-          console.log('SUCCESSFULLY POSTED TO CALENDAR');
+    if(data.actions[0].value==="cancel"){
+      state.date = "";
+      state.time = "";
+      res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
+    }
+    else{
 
-          console.log('THIS IS THE INFORMATION THE USER HAS', user);
-          console.log('this is the state', state);
-          var reminder = new models.Reminder({
-            subject: state.subject,
-            day: state.date,
-            googCalID: user.googleAccount.profile_ID,
-            reqID: user.slack_ID
+      var curTime = Date.now();
+
+      console.log(state);
+      //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
+      models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
+      .then(function(user){
+        if(curTime > user.googleAccount.expiry_date){
+          console.log("access_token has expired");
+          var googleAuth = googleAuth();
+          googleAuth.setCredentials(user.googleAccount);
+          googleAuth.refreshAccessToken(function(err, tokens) {
+            console.log("enters this function first...", tokens);
+            user.googleAccount = tokens;
+            user.save(function(err) {
+              if(err){
+                console.log("blah blah err", err);
+              } else {
+                console.log("no error");
+              }
+              return user;
+            })
           })
+          .then(function(user){
+            console.log("this is second console before final console", user);
+            return user;
+          })
+          //return user;
+        }else{
+          console.log('token still good homie');
+          return user;
+        }
+      })
+      //this part needs to be moved into the post request
+      .then(function(user) {
+        //POST MESSAGE TO GOOGLE CALENDAR
+        if(user){
+          //create calendar event here
+          var new_event = {
+            "end": {
+              "date": state.date
+            },
+            "start": {
+              "date": state.date
+            },
+            "description": "Chief Keef is a fucking legend",
+            "summary": state.subject
 
-          console.log('this is the REMINDER', reminder);
-          reminder.save(function(err) {
-            if(err) {
-              console.log('there is an error', err);
-            } else {
-              console.log('YOUNG BUT IM MAKING MILLION TO WORK THE NIGHT SHIFT');
+          }
+        })
+        //this part needs to be moved into the post request
+        .then(function(user) {
+          //POST MESSAGE TO GOOGLE CALENDAR
+          if(user){
+            //create calendar event here
+            var new_event = {
+              "end": {
+                "date": state.date
+              },
+              "start": {
+                "date": state.date
+              },
+              "description": "Chief Keef is a fucking legend",
+              "summary": state.subject
             }
-          });
 
-          state = {
-            date: '',
-            subject: ''
+            axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+            .then(function(response){
+              console.log('SUCCESSFULLY POSTED TO CALENDAR');
+
+              console.log('THIS IS THE INFORMATION THE USER HAS', user);
+              console.log('this is the state', state);
+
+              var reminder = new models.Reminder({
+                subject: state.subject,
+                day: state.date,
+                googCalID: user.googleAccount.profile_ID,
+                reqID: user.slack_ID
+              })
+
+              console.log('this is the REMINDER', reminder);
+
+              reminder.save(function(err) {
+                if(err) {
+                  console.log('there is an error', err);
+                } else {
+                  console.log('YOUNG BUT IM MAKING MILLION TO WORK THE NIGHT SHIFT');
+                }
+              });
+
+              state.date = "";
+              state.time = "";
+              res.send("Your calendar has been updated. " + ':pray: :100: :fire:');
+
+            })
+            .catch(function(err){
+              console.log(err);
+            })
+
           }
 
         })
-        .catch(function(err){
-          console.log(err);
-        })
       }
 
     })
 
-    res.send(':pray: :100: :fire:')
+    app.listen(3000);
 
-  })
-
-  app.listen(3000);
+    module.exports = {
+      rtm
+    }
