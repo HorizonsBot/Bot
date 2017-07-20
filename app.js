@@ -509,10 +509,10 @@ app.post('/bot-test', function(req,res) {
           console.log("access_token has expired", user);
           var googleAuthV = googleAuth();
           googleAuthV.setCredentials(user.googleAccount);
-          googleAuthV.refreshAccessToken(function(err, tokens) {
+          return googleAuthV.refreshAccessToken(function(err, tokens) {
             console.log("enters this function first...", tokens);
             user.googleAccount = tokens;
-            user.save(function(err) {
+            return user.save(function(err) {
               if(err){
                 console.log("blah blah err", err);
               } else {
