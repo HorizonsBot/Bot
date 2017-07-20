@@ -199,9 +199,14 @@ var checkConflict = function(user){
           var email = encodeURIComponent(attendee.email);
           var calendarStart = new Date().toISOString();
           var timeMin = encodeURIComponent(calendarStart);
-          var accessToken = encodeURIComponent(user.googleAccount.access_token);
+          var accessToken = encodeURIComponent(attendee.access_token);
           calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
       })
+      var calendarStart = new Date().toISOString();
+      
+      var timeMin = encodeURIComponent(calendarStart);
+      calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${user.googleAccount.email}/events?timeMin=${timeMin}&access_token=${user.googleAccount.access_token}`))
+
 
       return Promise.all(calendarPromises)
       .then(function(calendars) {
@@ -420,7 +425,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     //AUTHORIZE GOOGLE ACCOUNT LINK
       if(!user.googleAccount.access_token){
         web.chat.postMessage(message.channel,
-          'Use this link to give access to your google cal account http://localhost:3000/connect?auth_id='
+          'Use this link to give access to your google cal account ' + process.env.DOMAIN + '/connect?auth_id='
           + user._id);
           return;
       }
@@ -724,7 +729,7 @@ function findAttendees(state){
       var id = item.slack_ID;
       console.log(item);
       if(state.inviteesBySlackid.indexOf(id) !== -1){
-          attendees.push({"email": item.googleAccount.email})
+          attendees.push({"email": item.googleAccount.email, "access_token": item.googleAccount.access_token})
       }
     })
     console.log('INSIDE FIND ATTENDEES METHOD');
