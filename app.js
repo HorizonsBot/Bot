@@ -58,7 +58,9 @@ var obj = {
   ]
 }
 
+
 // TASK FUNCTIONS
+
 var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
@@ -90,6 +92,7 @@ var taskFunction = function(data, message, state){
 }
 
 // MEETING FUNCTIONS
+
 var meetingHandler = function({result}, message, state){
 
   // if all present execute if condition else go to else
@@ -158,7 +161,7 @@ var setInvitees = function(myString, state){
 }
 
 
-// SLACK FUNCTIONS FOR RECEIVING MESSAGES
+
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -208,6 +211,14 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             //console.log("after function call", message.text);
           }
 
+          if(message.text.indexOf('schedule')!==-1){
+            console.log("calling new function");
+            message.text = setInvitees(message.text , user.pendingState);
+            user.save();
+            //message.text is a string of real life names
+            console.log("after function call", message.text);
+          }
+
           var temp = encodeURIComponent(message.text);
 
           axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
@@ -250,6 +261,16 @@ rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) 
 // ROUTES
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+function googleAuth() {
+  return new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.DOMAIN + '/connect/callback'
+  );
+}
+
+// routes
 
 app.get('/connect', function(req, res){
   var oauth2Client = googleAuth();
@@ -410,13 +431,6 @@ app.post('/bot-test', function(req,res){
 
 
 // FUNCTIONS
-function googleAuth() {
-  return new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-  );
-}
 
 function taskPath(user, state){
 
@@ -499,6 +513,7 @@ function findAttendees(state){
 
 }
 
+
 function calculateEndTimeString(state){
     //set up for default 30 minute meetings until api.ai is trained better
     var meetingLength = 60;
@@ -561,11 +576,6 @@ function meetingPath(user, state){
             console.log('saved reminder in mongo');
           }
         });
-
-        state.date = "";
-        state.time = "";
-        state.subject="";
-        state.invitees = [];
 
         if(response.status === 200){
           return true;
