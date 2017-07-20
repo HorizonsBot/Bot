@@ -7,6 +7,8 @@ var WebClient = require('@slack/client').WebClient;
 var mongoose = require('mongoose');
 var models = require('./models');
 var axios = require('axios');
+var moment = require('moment');
+moment().format();
 
 
 var token = process.env.SLACK_SECRET || '';
@@ -29,6 +31,7 @@ REQUIRED_ENV.forEach(function(el) {
   }
 });
 
+// INTERACTIVE BUTTON OBJECT
 var obj = {
   "attachments": [
     {
@@ -55,7 +58,163 @@ var obj = {
   ]
 }
 
-//task functions
+// checking conflict
+
+var getWeekArray = function(date, time){
+
+  console.log("entered getWeekArray");
+  var startString = date + time;
+  var a = moment(date);
+  var b = a.add(7, 'day'); //make this shit a moment god dammit
+  var c = b.format().substring(0,19);
+  var endString = c.split('T').join(' ');
+  var start = moment(startString, 'YYYY-MM-DD hh:mm a');
+  var end = moment(endString, 'YYYY-MM-DD hh:mm a');
+  var result = [];
+  var current = moment(start);
+  while (current <= end) {
+        result.push(current.format('YYYY-MM-DD HH:mm'));
+        current.add(30, 'minutes');
+  }
+
+  console.log("original weekArray", result);
+
+  return result;
+
+}  //returns week array
+
+var cutWeekArray = function(busyArray, state){
+
+  console.log("entered function cutWeekArray");
+
+  var weekArray = getWeekArray(state.date, state.time);
+
+  console.log("weekArray", weekArray);
+
+  for(var i=0;i<busyArray.length;i+=2){
+    var x = weekArray.indexOf(busyArray[i]);
+    var y = weekArray.indexOf(busyArray[i+1]);
+    if(x!==-1)weekArray.splice(x,y-x);
+  }
+  console.log("after cutting weekArray", weekArray);
+  return weekArray;
+} // returns week array with available time slots
+
+var limitWeekArray = function(weekArray){
+
+  console.log("entered limitWeekArray");
+
+  var finalArray = [];
+
+  for(var i = 1; i < 8 ; i++){
+    finalArray.push([]);
+  }
+
+  console.log("finalArray", finalArray);
+
+  var j = 0 ;
+
+  for(var i=0;i<weekArray.length; i++){
+    if(finalArray[j].length===3){
+      j++;
+      var date = parseInt(weekArray[i].substring(8,10));
+      var target = date===30 || date===31 ? 1 : date+1;
+      for(var z=0;z<weekArray.length;z++){
+        var look = parseInt(weekArray[z].substring(8,10));
+        if(target === look){
+          i=z;
+          break;
+        }
+      }
+      if(j===7)break;
+    }
+    finalArray[j].push(weekArray[i]);
+  }
+
+  console.log("finalArray", finalArray);
+  var mainArray = [];
+  var k=0;
+  while(mainArray.length!==10){
+    if(finalArray[k].length===0)k++;
+    mainArray.push(finalArray[k].shift());
+  }
+  console.log("mainArray", mainArray);
+  return mainArray;
+} // cuts down weekArray to 10 slots;
+
+var checkConflict = function(user){
+  console.log("entered the funtion checkConflict");
+  return findAttendees(user.pendingState)
+  .then(attendees => {
+      console.log("started forming attendees");
+      var calendarPromises = [];
+      var attendeeCalendars;
+      var busyArray = [];
+
+      attendees.forEach(function(attendee) {
+          var email = encodeURIComponent(attendee.email);
+          var calendarStart = new Date().toISOString();
+          var timeMin = encodeURIComponent(calendarStart);
+          var accessToken = encodeURIComponent(user.googleAccount.access_token);
+          calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
+      })
+
+      return Promise.all(calendarPromises)
+      .then(function(calendars) {
+
+          attendeeCalendars = calendars.map(function(calendar) {
+              return calendar.data.items;
+          })
+
+          attendeeCalendars.forEach(function(calendar, index){
+            attendeeCalendars[index] = calendar.filter(function(item){
+              return item.start.dateTime;
+            })
+          })
+
+          attendeeCalendars.forEach(function(calendar, index){
+           attendeeCalendars[index] = calendar.forEach(function(item){
+              var start = item.start.dateTime.split('T');
+              var end = item.end.dateTime.split('T');
+              var startArr = [start[0], start[1].slice(0,5)];
+              var endArr = [end[0], end[1].slice(0,5)];
+              busyArray.push(startArr.join(' '));
+              busyArray.push(endArr.join(' '));
+            })
+          })
+
+          console.log("busyArray", busyArray);
+
+          var checkString = user.pendingState.date + ' ' + user.pendingState.time.substring(0,5);
+
+          console.log("checkString", checkString);
+
+          if(busyArray.indexOf(checkString)===-1)return false; //  no conflict;
+
+          var flag1 = cutWeekArray(busyArray, user.pendingState);
+
+          console.log("after cutting flag1", flag1);
+
+          flag1 = limitWeekArray(flag1);
+
+          console.log("after limiting weeek array", flag1);
+
+          return flag1;
+      })
+      .catch(function(err){
+        console.log(err)
+      });
+  })
+  .then(function(flag1){
+    return flag1;
+  })
+  .catch(function(error){
+    console.log(error);
+  })
+} // creates a busy array using everyones data
+
+
+// TASK FUNCTIONS
 
 var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
@@ -87,11 +246,13 @@ var taskFunction = function(data, message, state){
   }
 }
 
-//meeting functions
+// MEETING FUNCTIONS
 
-var meetingHandler = function({result}, message, state){
+var meetingHandler = function({result}, message, user){ //ccccc
 
   // if all present execute if condition else go to else
+
+  state = user.pendingState;
 
   if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
     //set state
@@ -103,15 +264,26 @@ var meetingHandler = function({result}, message, state){
     state.invitees.forEach(function(item){
       inviteString = inviteString + " and " + item;
     })
-    //create im
-    obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
-    web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
-      if (err) {
-        console.log('Error:', err);
-      } else {
-        console.log('Message sent: ', res);
-      }
-    });
+
+    //////
+
+    user.save(function(err, user){
+      var check = true;
+      console.log("enter here after setting pendingState");
+      var flag = checkConflict(user);
+      console.log(flag);
+      if(flag===false)check=false;
+      obj.attachments[0].text = !check ?
+      `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`:
+      "CONFLICT BITCH" + flag;
+      web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
+        if (err) {
+          console.log('Error:', err);
+        } else {
+          console.log('Message sent: ', res);
+        }
+      });
+    })
   }
   else {
     //check for all parameters
@@ -125,38 +297,37 @@ var meetingHandler = function({result}, message, state){
       state.time = result.parameters.time;
     }
     if(result.parameters.invitees[0]){
+      state.invitees = result.parameters.invitees;
     }
+    user.save();
     rtm.sendMessage(result.fulfillment.speech, message.channel);
   }
 }
 
-var meetingFunction = function(data, message, state){
+var meetingFunction = function(data, message, user){ //ccccc
+  state = user.pendingState;
   if(!state.date || !state.invitees[0] || !state.time){
-    meetingHandler(data, message, state);
+    meetingHandler(data, message, user); //cccccc
   } else if(state.date && state.time && state.invitees[0]){
     rtm.sendMessage("Reply to previous task status", message.channel);
   } else {
-    meetingHandler(data, message, state);
+    meetingHandler(data, message, user); ///cccccc
   }
 }
 
 var setInvitees = function(myString, state){
-
   var myArray = myString.split(' ');
-
   myArray.forEach(function(item,index){
     if(item[0]==='<'){
       item = item.substring(2,item.length-1);
       state.inviteesBySlackid.push(item);
-      //console.log("reached here", item, rtm.dataStore.getUserById(item));
       myArray[index] = rtm.dataStore.getUserById(item).real_name;
     }
   });
-  console.log("this is new function", myArray);
   return myArray.join(' ');
 }
 
-// slack functions for recieving messages
+
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -196,14 +367,9 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
       else {
 
-          console.log('the first time it gets here');
-
           if(message.text.indexOf('schedule')!==-1){
-            console.log("calling new function");
             message.text = setInvitees(message.text , user.pendingState);
             user.save();
-            //message.text is a string of real life names
-            console.log("after function call", message.text);
           }
 
           var temp = encodeURIComponent(message.text);
@@ -216,8 +382,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           .then(function({ data }){
 
             if(message.text.indexOf("schedule")!==-1){
-              meetingFunction(data, message, user.pendingState);
-              user.save();
+              meetingFunction(data, message, user); //cccccc
+
             }else{
               taskFunction(data, message, user.pendingState);
               user.save();
@@ -244,6 +410,8 @@ rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) 
     console.log('Reaction removed:', reaction);
 });
 
+
+// ROUTES
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -256,6 +424,7 @@ function googleAuth() {
 }
 
 // routes
+
 app.get('/connect', function(req, res){
   var oauth2Client = googleAuth();
   var url = oauth2Client.generateAuthUrl({
@@ -272,7 +441,6 @@ app.get('/connect', function(req, res){
   });
 
   res.redirect(url);
-
 })
 
 app.get('/connect/callback', function(req, res){
@@ -309,17 +477,13 @@ app.get('/connect/callback', function(req, res){
 
 })
 
-app.get('/', function(req,res){
-    res.send("reached home");
-})
-
-app.post('/bot-test', function(req,res){
+app.post('/bot-test', function(req,res) {
 
   var data = JSON.parse(req.body.payload);
   console.log("*************reached here******************", data);
 
-    if(data.actions[0].value==="cancel"){
-      models.User.findOne({slack_ID: data.user.id})
+  if(data.actions[0].value==="cancel"){
+      models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
         user.pendingState = {
           subject: "",
@@ -335,9 +499,10 @@ app.post('/bot-test', function(req,res){
       res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
     }
 
-    else{
+  else{
       var curTime = Date.now();
-      models.User.findOne({slack_ID: data.user.id})
+      //console.log("*****STATE****", user.pendingState);
+      models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
         console.log("*****STATE****", user.pendingState);
         if(curTime > user.googleAccount.expiry_date){
@@ -416,6 +581,9 @@ app.post('/bot-test', function(req,res){
       })
     }
 })
+
+
+// FUNCTIONS
 
 function taskPath(user, state){
 
@@ -498,60 +666,46 @@ function findAttendees(state){
 
 }
 
+
+function calculateEndTimeString(state){
+    //set up for default 30 minute meetings until api.ai is trained better
+    var meetingLength = 60;
+
+    var end =  state.date + 'T' + state.time;
+    var endMoment = moment(end);
+    endMoment.add(meetingLength, 'minute');
+    return endMoment;
+}
+
+function calculateStartTimeString(state){
+    var start =  state.date + 'T' + state.time;
+    var startMoment = moment(start);
+    return startMoment;
+}
+
+
 function meetingPath(user, state){
+
+    var start = calculateStartTimeString(state);
+    var end = calculateEndTimeString(state);
+    var subject = state.subject || 'DEFAULT MEETING SUBJECT';
 
     if(user){
     return findAttendees(state)
     .then((attendees) => {
       console.log('ATTENDEES ARRAY: ', attendees);
-      var calendarPromises = [];
-      var attendeeCalendars;
-      attendees.forEach(function(attendee) {
-        var email = encodeURIComponent(attendee.email);
-        var calendarStart = new Date().toISOString();
-        var timeMin = encodeURIComponent(calendarStart);
-        var accessToken = encodeURIComponent(user.googleAccount.access_token);
-        calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
-      })
-
-      Promise.all(calendarPromises).then(function(calendars) {
-        attendeeCalendars = calendars.map(function(calendar) {
-            return calendar.data.items;
-          })
-        attendeeCalendars.forEach(function(calendar, index){
-          attendeeCalendars[index] = calendar.filter(function(item){
-            return item.start.dateTime;
-          })
-        })
-        attendeeCalendars.forEach(function(calendar, index){
-         attendeeCalendars[index] = calendar.map(function(item){
-            var start = item.start.dateTime.split('T');
-            var end = item.end.dateTime.split('T');
-            return { stateDate: start[0], startTime: start[1].slice(0,8), endDate: end[0], endTime: end[1].slice(0,8)};
-          })
-        })
-        console.log(attendeeCalendars);
-      })
-
-      .catch(function(err){
-        console.log(err)
-      });
-
-
-
-
       var new_event = {
         "end": {
-          "dateTime": "2017-07-20T12:30:00",
+          "dateTime": end,
           "timeZone": "America/Los_Angeles"
         },
         "start": {
-          "dateTime": "2017-07-20T12:00:00",
+          "dateTime": start,
           "timeZone": "America/Los_Angeles"
         },
-        "summary": "MEETING",
-        "attendees": attendees,
-       "description": "ramma lamma ding dong. as always"
+        "summary": subject,
+        "attendees": attendees
+      //  "description": "ramma lamma ding dong. as always"
       }
       return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
       .then(function(response){
@@ -576,11 +730,6 @@ function meetingPath(user, state){
             console.log('saved reminder in mongo');
           }
         });
-
-        state.date = "";
-        state.time = "";
-        state.subject="";
-        state.invitees = [];
 
         if(response.status === 200){
           return true;
