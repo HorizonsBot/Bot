@@ -31,6 +31,7 @@ REQUIRED_ENV.forEach(function(el) {
   }
 });
 
+// INTERACTIVE BUTTON OBJECT
 var obj = {
   "attachments": [
     {
@@ -57,8 +58,7 @@ var obj = {
   ]
 }
 
-//task functions
-
+// TASK FUNCTIONS
 var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
@@ -89,8 +89,7 @@ var taskFunction = function(data, message, state){
   }
 }
 
-//meeting functions
-
+// MEETING FUNCTIONS
 var meetingHandler = function({result}, message, state){
 
   // if all present execute if condition else go to else
@@ -158,7 +157,8 @@ var setInvitees = function(myString, state){
   return myArray.join(' ');
 }
 
-// slack functions for recieving messages
+
+// SLACK FUNCTIONS FOR RECEIVING MESSAGES
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -246,18 +246,11 @@ rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) 
     console.log('Reaction removed:', reaction);
 });
 
+
+// ROUTES
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-function googleAuth() {
-  return new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-  );
-}
-
-// routes
 app.get('/connect', function(req, res){
   var oauth2Client = googleAuth();
   var url = oauth2Client.generateAuthUrl({
@@ -274,7 +267,6 @@ app.get('/connect', function(req, res){
   });
 
   res.redirect(url);
-
 })
 
 app.get('/connect/callback', function(req, res){
@@ -309,10 +301,6 @@ app.get('/connect/callback', function(req, res){
 
   });
 
-})
-
-app.get('/', function(req,res){
-    res.send("reached home");
 })
 
 app.post('/bot-test', function(req,res){
@@ -419,6 +407,16 @@ app.post('/bot-test', function(req,res){
       })
     }
 })
+
+
+// FUNCTIONS
+function googleAuth() {
+  return new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.DOMAIN + '/connect/callback'
+  );
+}
 
 function taskPath(user, state){
 
