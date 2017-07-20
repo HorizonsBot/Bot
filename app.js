@@ -538,40 +538,40 @@ app.post('/bot-test', function(req,res) {
             //POST TASK
             taskPath(user, state).then((flag) => {
               if(flag){
-                user.pendingState = {
-                  subject: "",
-                  date: "",
-                  time: "",
-                  invitees: [],
-                  inviteesBySlackid: [],
-                };
-                user.save(function(err){
-                  if(err)console.log(err);
-                });
                 res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post task to calendar")
               }
+              user.pendingState = {
+                subject: "",
+                date: "",
+                time: "",
+                invitees: [],
+                inviteesBySlackid: [],
+              };
+              user.save(function(err){
+                if(err)console.log(err);
+              });
             });
           }else{
             //POST MEETING
             meetingPath(user, state).then((flag) => {
               console.log("FLAG", flag);
               if(flag){
-                user.pendingState = {
-                  subject: "",
-                  date: "",
-                  time: "",
-                  invitees: [],
-                  inviteesBySlackid: [],
-                };
-                user.save(function(err){
-                  if(err)console.log(err);
-                });
                 res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post meeting to calendar")
               }
+              user.pendingState = {
+                subject: "",
+                date: "",
+                time: "",
+                invitees: [],
+                inviteesBySlackid: [],
+              };
+              user.save(function(err){
+                if(err)console.log(err);
+              });
             });
           }
 
