@@ -69,9 +69,15 @@ var dropdown_obj = {
            "actions": [
                {
                    "name": "alt_dates",
-                   "text": "Pick a different game...",
+                   "text": "Pick an alternate date and time...",
                    "type": "select",
                    "options": []
+               },
+               {
+                 "name": "confirm",
+                 "text": "Cancel",
+                 "type": "button",
+                 "value": "cancel"
                }
            ]
        }
@@ -548,7 +554,7 @@ app.post('/bot-test', function(req,res) {
         clearState(user)
       })
       res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
-    }
+  }
 
   else{
       var curTime = Date.now();
@@ -596,20 +602,41 @@ app.post('/bot-test', function(req,res) {
                 res.send("Failed to post task to calendar")
               }
             });
-          }else{
+          }  //for task
+          else{ // for meeting
             //POST MEETING
-            meetingPath(user, state).then((flag) => {
-              console.log("FLAG", flag);
-              if(flag){
-                clearState(user);
-                res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
-              }else{
-                clearState(user);
-                res.send("Failed to post meeting to calendar")
-              }
-            });
+            if(data.actions[0].name==='alt_dates'){
+              console.log("i want this", data.actions[0].selected_options );
+              var mo = data.actions[0].selected_options[0];
+              var mo1 = mo.value.split(' ');
+              user.pendingState.date = mo1[0];
+              user.pendingState.time = mo1[1] + ":00";
+              user.save(function(err,user){
+                meetingPath(user, user.pendingState).then((flag) => {
+                  console.log("FLAG", flag);
+                  if(flag){
+                    clearState(user);
+                    res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+                  }else{
+                    clearState(user);
+                    res.send("Failed to post meeting to calendar")
+                  }
+                });
+              });
+            } // for meeting with conflicts
+            else{
+              meetingPath(user, state).then((flag) => {
+                console.log("FLAG", flag);
+                if(flag){
+                  clearState(user);
+                  res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+                }else{
+                  clearState(user);
+                  res.send("Failed to post meeting to calendar")
+                }
+              });
+            } //for meeting without conflicts
           }
-
       })
       .catch(function(error){
         console.log("********error********", error);
