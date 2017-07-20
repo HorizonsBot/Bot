@@ -19,7 +19,7 @@ rtm.start();
 var OAuth2 = google.auth.OAuth2;
 mongoose.connect(process.env.MONGODB_URI);
 
-// REQUIRED SOURCE CHECKS
+// REQUIRED SOURCE CHECKIES
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DOMAIN".split(" ");
 
 REQUIRED_ENV.forEach(function(el) {
@@ -55,16 +55,9 @@ var obj = {
   ]
 }
 
-var state = {
-  subject: '',
-  date: '',
-  invitees: [],
-  time: '',
-}
-
 //task functions
 
-var taskHandler = function({result}, message){
+var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
     obj.attachments[0].text = `Create task to ${state.subject} on ${state.date}`;
@@ -84,19 +77,19 @@ var taskHandler = function({result}, message){
   }
 }
 
-var taskFunction = function(data, message){
+var taskFunction = function(data, message, state){
   if(!state.date || !state.subject){
-    taskHandler(data, message);
+    taskHandler(data, message, state);
   } else if(state.date && state.subject){
     rtm.sendMessage("Reply to previous task status", message.channel);
   } else {
-    taskHandler(data, message);
+    taskHandler(data, message, state);
   }
 }
 
 //meeting functions
 
-var meetingHandler = function({result}, message){
+var meetingHandler = function({result}, message, state){
 
   // if all present execute if condition else go to else
 
@@ -137,18 +130,33 @@ var meetingHandler = function({result}, message){
   }
 }
 
-var meetingFunction = function(data, message){
+var meetingFunction = function(data, message, state){
   if(!state.date || !state.invitees[0] || !state.time){
-    meetingHandler(data, message);
+    meetingHandler(data, message, state);
   } else if(state.date && state.time && state.invitees[0]){
     rtm.sendMessage("Reply to previous task status", message.channel);
   } else {
-    meetingHandler(data, message);
+    meetingHandler(data, message, state);
   }
 }
 
-// slack functions for recieving messages
+var setInvitees = function(myString, state){
 
+  var myArray = myString.split(' ');
+
+  myArray.forEach(function(item,index){
+    if(item[0]==='<'){
+      item = item.substring(2,item.length-1);
+      state.inviteesBySlackid.push(item);
+      //console.log("reached here", item, rtm.dataStore.getUserById(item));
+      myArray[index] = rtm.dataStore.getUserById(item).real_name;
+    }
+  });
+  console.log("this is new function", myArray);
+  return myArray.join(' ');
+}
+
+// slack functions for recieving messages
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -190,6 +198,14 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
           console.log('the first time it gets here');
 
+          if(message.text.indexOf('schedule')!==-1){
+            console.log("calling new function");
+            message.text = setInvitees(message.text , user.pendingState);
+            user.save();
+            //message.text is a string of real life names
+            console.log("after function call", message.text);
+          }
+
           var temp = encodeURIComponent(message.text);
 
           axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
@@ -200,9 +216,11 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           .then(function({ data }){
 
             if(message.text.indexOf("schedule")!==-1){
-              meetingFunction(data, message);
+              meetingFunction(data, message, user.pendingState);
+              user.save();
             }else{
-              taskFunction(data, message);
+              taskFunction(data, message, user.pendingState);
+              user.save();
             }
 
           })
@@ -212,19 +230,18 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
       }
 
-  })
+    })
   .catch(function(error){
       console.log(error);
-   })
-
-});
+  })
+})
 
 rtm.on(RTM_EVENTS.REACTION_ADDED, function handleRtmReactionAdded(reaction) {
-  console.log('Reaction added:', reaction);
+    console.log('Reaction added:', reaction);
 });
 
 rtm.on(RTM_EVENTS.REACTION_REMOVED, function handleRtmReactionRemoved(reaction) {
-  console.log('Reaction removed:', reaction);
+    console.log('Reaction removed:', reaction);
 });
 
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -239,7 +256,6 @@ function googleAuth() {
 }
 
 // routes
-
 app.get('/connect', function(req, res){
   var oauth2Client = googleAuth();
   var url = oauth2Client.generateAuthUrl({
@@ -281,7 +297,8 @@ app.get('/connect/callback', function(req, res){
         }
       })
       .then(function(user){
-        user.save();
+        // user.save();
+        res.send('SUCCESSFULLY CONNECTED');
       })
       .catch(function(err){
         console.log('ERROR ' + err);
@@ -290,14 +307,10 @@ app.get('/connect/callback', function(req, res){
 
   });
 
-  res.send(`<script>
-    window.close();
-  </script>`);
-
 })
 
 app.get('/', function(req,res){
-  res.send("reached home");
+    res.send("reached home");
 })
 
 app.post('/bot-test', function(req,res){
@@ -305,107 +318,295 @@ app.post('/bot-test', function(req,res){
   var data = JSON.parse(req.body.payload);
   console.log("*************reached here******************", data);
 
+    if(data.actions[0].value==="cancel"){
+      models.User.findOne({slack_ID: data.user.id})
+      .then(function(user){
+        user.pendingState = {
+          subject: "",
+          date: "",
+          time: "",
+          invitees: [],
+          inviteesBySlackid: [],
+        };
+        user.save(function(err){
+          if(err)console.log(err);
+        });
+      })
+      res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
+    }
 
-  if(data.actions[0].value==="cancel"){
-    state.date = "";
-    state.time = "";
-    res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
-  }
-
-  else{
-
-    var curTime = Date.now();
-
-    console.log(state);
-    //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
-    models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
-    .then(function(user){
-      if(curTime > user.googleAccount.expiry_date){
-        console.log("access_token has expired");
-        var googleAuthV = googleAuth();
-        googleAuthV.setCredentials(user.googleAccount);
-        googleAuthV.refreshAccessToken(function(err, tokens) {
-          console.log("enters this function first...", tokens);
-          user.googleAccount = tokens;
-          user.save(function(err) {
-            if(err){
-              console.log( err);
-            } else {
-              console.log("no error");
-            }
+    else{
+      var curTime = Date.now();
+      models.User.findOne({slack_ID: data.user.id})
+      .then(function(user){
+        console.log("*****STATE****", user.pendingState);
+        if(curTime > user.googleAccount.expiry_date){
+          console.log("access_token has expired", user);
+          var googleAuthV = googleAuth();
+          googleAuthV.setCredentials(user.googleAccount);
+          googleAuthV.refreshAccessToken(function(err, tokens) {
+            console.log("enters this function first...", tokens);
+            user.googleAccount = tokens;
+            user.save(function(err) {
+              if(err){
+                console.log("blah blah err", err);
+              } else {
+                console.log("no error");
+              }
+              return user;
+            })
+          })
+          .then(function(user){
+            console.log("this is second console before final console", user);
             return user;
           })
-        })
-        .then(function(user){
-          console.log("this is second console before final console", user);
+        }
+        else{
+          console.log('token still good homie');
           return user;
-        })
-      }
-      else{
-        console.log('token still good homie');
-        return user;
-      }
-    })
-    .then(function(user) {
-        //POST MESSAGE TO GOOGLE CALENDAR
-        if(user){
-          //create calendar event here
-          var new_event = {
-            "end": {
-              "date": state.date
-            },
-            "start": {
-              "date": state.date
-            },
-            "description": "Chief Keef is a fucking legend",
-            "summary": state.subject
+        }
+      })
+      .then(function(user) {
+          var state = user.pendingState;
+          //POST TASK OR MEETING TO GOOGLE CAL
+          if(state.invitees.length === 0){
+            //POST TASK
+            taskPath(user, state).then((flag) => {
+              if(flag){
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
+                res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
+              }else{
+                res.send("Failed to post task to calendar")
+              }
+            });
+          }else{
+            //POST MEETING
+            meetingPath(user, state).then((flag) => {
+              console.log("FLAG", flag);
+              if(flag){
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
+                res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+              }else{
+                res.send("Failed to post meeting to calendar")
+              }
+            });
           }
 
-          axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
-          .then(function(response){
-              console.log('SUCCESSFULLY POSTED TO CALENDAR');
+      })
+      .catch(function(error){
+        console.log("********error********", error);
+      })
+    }
+})
 
-              console.log('THIS IS THE INFORMATION THE USER HAS', user);
-              console.log('this is the state', state);
+function taskPath(user, state){
 
-              var reminder = new models.Reminder({
-                subject: state.subject,
-                day: state.date,
-                googCalID: user.googleAccount.profile_ID,
-                reqID: user.slack_ID
-              })
+    if(user){
+      //create calendar event here
+      var new_event = {
+        "end": {
+          "date": state.date
+        },
+        "start": {
+          "date": state.date
+        },
+        "description": "Chief Keef is a fucking legend",
+        "summary": state.subject
+      }
+      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+      .then(function(response){
 
-              console.log('this is the REMINDER', reminder);
+        console.log('RESPONSE', response.status);
+        console.log('THIS IS THE INFORMATION THE USER HAS', user);
+        console.log('this is the state', state);
 
-              reminder.save(function(err) {
-                if(err) {
-                  console.log('there is an error', err);
-                } else {
-                  console.log('YOUNG BUT IM MAKING MILLION TO WORK THE NIGHT SHIFT');
-                }
-              });
+        var reminder = new models.Reminder({
+          subject: state.subject,
+          day: state.date,
+          googCalID: user.googleAccount.profile_ID,
+          reqID: user.slack_ID
+        })
 
-              state.date = "";
-              state.time = "";
-              res.send("Your calendar has been updated. " + ':pray: :100: :fire:');
+        console.log('this is the REMINDER', reminder);
 
-          })
-          .catch(function(err){
-              console.log(err);
-          })
+        reminder.save(function(err) {
+          if(err) {
+            console.log('there is an error', err);
+          } else {
+            console.log('saved reminder in mongo');
+          }
+        });
 
+        console.log(typeof response.status);
+
+        if(response.status === 200){
+          console.log('fuck you');
+          return true;
+        }else{
+          console.log('yay');
+          return false;
         }
 
+
+      })
+      .then(function(flag){
+        console.log("reached here bitch");
+        return flag;
+      })
+      .catch(function(err){
+        console.log(err);
+      })
+    }
+
+}
+
+function findAttendees(state){
+
+  return models.User.find({})
+  .then(function(users){
+    var attendees = [];
+
+    users.forEach(function(item){
+      var id = item.slack_ID;
+      console.log(item);
+      if(state.inviteesBySlackid.indexOf(id) !== -1){
+          attendees.push({"email": item.googleAccount.email})
+      }
     })
-    .catch(function(error){
-      console.log(error);
+    console.log('INSIDE FIND ATTENDEES METHOD');
+    console.log(attendees);
+    return attendees;
+  })
+
+}
+
+function meetingPath(user, state){
+
+    if(user){
+    return findAttendees(state)
+    .then((attendees) => {
+      console.log('ATTENDEES ARRAY: ', attendees);
+      var calendarPromises = [];
+      var attendeeCalendars;
+      attendees.forEach(function(attendee) {
+        var email = encodeURIComponent(attendee.email);
+        var calendarStart = new Date().toISOString();
+        var timeMin = encodeURIComponent(calendarStart);
+        var accessToken = encodeURIComponent(user.googleAccount.access_token);
+        calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
+      })
+
+      Promise.all(calendarPromises).then(function(calendars) {
+        attendeeCalendars = calendars.map(function(calendar) {
+            return calendar.data.items;
+          })
+        attendeeCalendars.forEach(function(calendar, index){
+          attendeeCalendars[index] = calendar.filter(function(item){
+            return item.start.dateTime;
+          })
+        })
+        attendeeCalendars.forEach(function(calendar, index){
+         attendeeCalendars[index] = calendar.map(function(item){
+            var start = item.start.dateTime.split('T');
+            var end = item.end.dateTime.split('T');
+            return { stateDate: start[0], startTime: start[1].slice(0,8), endDate: end[0], endTime: end[1].slice(0,8)};
+          })
+        })
+        console.log(attendeeCalendars);
+      })
+
+      .catch(function(err){
+        console.log(err)
+      });
+
+
+
+
+      var new_event = {
+        "end": {
+          "dateTime": "2017-07-20T12:30:00",
+          "timeZone": "America/Los_Angeles"
+        },
+        "start": {
+          "dateTime": "2017-07-20T12:00:00",
+          "timeZone": "America/Los_Angeles"
+        },
+        "summary": "MEETING",
+        "attendees": attendees,
+       "description": "ramma lamma ding dong. as always"
+      }
+      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+      .then(function(response){
+
+        console.log('RESPONSE', response.status);
+        console.log('THIS IS THE INFORMATION THE USER HAS', user);
+        console.log('this is the state', state);
+
+        var reminder = new models.Reminder({
+          subject: state.subject,
+          day: state.date,
+          googCalID: user.googleAccount.profile_ID,
+          reqID: user.slack_ID
+        })
+
+        console.log('this is the REMINDER', reminder);
+
+        reminder.save(function(err) {
+          if(err) {
+            console.log('there is an error', err);
+          } else {
+            console.log('saved reminder in mongo');
+          }
+        });
+
+        state.date = "";
+        state.time = "";
+        state.subject="";
+        state.invitees = [];
+
+        if(response.status === 200){
+          return true;
+        }else{
+          return false;
+        }
+
+
+      })
+      .then(function(flag){
+        return flag;
+      })
+      .catch(function(err){
+        console.log(err);
+      })
+    })
+    .then(flag=>{
+      return flag;
     })
   }
 
-})
+}
+
 
 app.listen(3000);
 
 module.exports = {
-    rtm
+  rtm
 }
