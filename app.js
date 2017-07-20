@@ -69,20 +69,6 @@ var dropdown_obj = {
            "actions": [
                {
                    "name": "alt_dates",
-<<<<<<< HEAD
-                   "text": "Pick a different game...",
-                   "type": "select",
-                   "options": [
-                       {
-                           "text": "DATE1",
-                           "value": "date1"
-                       },
-                       {
-                           "text": "DATE2",
-                           "value": "date2"
-                       }
-                   ]
-=======
                    "text": "Pick an alternate date and time...",
                    "type": "select",
                    "options": []
@@ -92,15 +78,12 @@ var dropdown_obj = {
                  "text": "Cancel",
                  "type": "button",
                  "value": "cancel"
->>>>>>> e43c0801da3471e6d4c6ff9eb27ffb8cee26e15d
                }
            ]
        }
    ]
 }
 
-<<<<<<< HEAD
-=======
 function getObject(array){
 
   var tempObj = dropdown_obj;
@@ -113,7 +96,6 @@ function getObject(array){
 
 }
 
->>>>>>> e43c0801da3471e6d4c6ff9eb27ffb8cee26e15d
 // checking conflict
 
 var getWeekArray = function(date, time){
