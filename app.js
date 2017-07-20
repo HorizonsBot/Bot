@@ -58,8 +58,36 @@ var obj = {
   ]
 }
 
-// checking conflict
+var dropdown_obj = {
+  "attachments": [
+       {
+           "text": "Scheduled time was not available. Here are some alternatives!",
+           "fallback": "WHAT IS A FALLBACK BRO?",
+           "color": "#3AA3E3",
+           "attachment_type": "default",
+           "callback_id": "alt_date_selection",
+           "actions": [
+               {
+                   "name": "alt_dates",
+                   "text": "Pick a different game...",
+                   "type": "select",
+                   "options": [
+                       {
+                           "text": "DATE1",
+                           "value": "date1"
+                       },
+                       {
+                           "text": "DATE2",
+                           "value": "date2"
+                       }
+                   ]
+               }
+           ]
+       }
+   ]
+}
 
+// checking conflict
 var getWeekArray = function(date, time){
 
   console.log("entered getWeekArray");
