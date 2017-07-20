@@ -14,6 +14,7 @@ var userSchema = mongoose.Schema({
     invitees: Array,
     inviteesBySlackid: Array,
     time: String,
+
   },
   slack_ID: String,
   slack_Username: String,
