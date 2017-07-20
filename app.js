@@ -55,17 +55,9 @@ var obj = {
   ]
 }
 
-var state = {
-  subject: '',
-  date: '',
-  invitees: [],
-  time: '',
-  inviteesBySlackid: []
-}
-
 //task functions
 
-var taskHandler = function({result}, message){
+var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
     obj.attachments[0].text = `Create task to ${state.subject} on ${state.date}`;
@@ -85,19 +77,19 @@ var taskHandler = function({result}, message){
   }
 }
 
-var taskFunction = function(data, message){
+var taskFunction = function(data, message, state){
   if(!state.date || !state.subject){
-    taskHandler(data, message);
+    taskHandler(data, message, state);
   } else if(state.date && state.subject){
     rtm.sendMessage("Reply to previous task status", message.channel);
   } else {
-    taskHandler(data, message);
+    taskHandler(data, message, state);
   }
 }
 
 //meeting functions
 
-var meetingHandler = function({result}, message){
+var meetingHandler = function({result}, message, state){
 
   // if all present execute if condition else go to else
 
@@ -138,17 +130,17 @@ var meetingHandler = function({result}, message){
   }
 }
 
-var meetingFunction = function(data, message){
+var meetingFunction = function(data, message, state){
   if(!state.date || !state.invitees[0] || !state.time){
-    meetingHandler(data, message);
+    meetingHandler(data, message, state);
   } else if(state.date && state.time && state.invitees[0]){
     rtm.sendMessage("Reply to previous task status", message.channel);
   } else {
-    meetingHandler(data, message);
+    meetingHandler(data, message, state);
   }
 }
 
-var setInvitees = function(myString){
+var setInvitees = function(myString, state){
 
   var myArray = myString.split(' ');
 
@@ -208,7 +200,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
           if(message.text.indexOf('schedule')!==-1){
             console.log("calling new function");
-            message.text = setInvitees(message.text);
+            message.text = setInvitees(message.text , user.pendingState);
+            user.save();
             //message.text is a string of real life names
             console.log("after function call", message.text);
           }
@@ -223,9 +216,11 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
           .then(function({ data }){
 
             if(message.text.indexOf("schedule")!==-1){
-              meetingFunction(data, message);
+              meetingFunction(data, message, user.pendingState);
+              user.save();
             }else{
-              taskFunction(data, message);
+              taskFunction(data, message, user.pendingState);
+              user.save();
             }
 
           })
@@ -320,23 +315,32 @@ app.get('/', function(req,res){
 
 app.post('/bot-test', function(req,res){
 
-
   var data = JSON.parse(req.body.payload);
   console.log("*************reached here******************", data);
 
     if(data.actions[0].value==="cancel"){
-      state.date = "";
-      state.time = "";
+      models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
+      .then(function(user){
+        user.pendingState = {
+          subject: "",
+          date: "",
+          time: "",
+          invitees: [],
+          inviteesBySlackid: [],
+        };
+        user.save(function(err){
+          if(err)console.log(err);
+        });
+      })
       res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
     }
 
     else{
-
       var curTime = Date.now();
-      console.log("*****STATE****", state);
-      //FIND MONGODB ENTRY TO GET TOKENS AND EXPIRY DATE (maybe this goes in a route too)
+      //console.log("*****STATE****", user.pendingState);
       models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
+        console.log("*****STATE****", user.pendingState);
         if(curTime > user.googleAccount.expiry_date){
           console.log("access_token has expired", user);
           var googleAuthV = googleAuth();
@@ -364,12 +368,22 @@ app.post('/bot-test', function(req,res){
         }
       })
       .then(function(user) {
-
+          var state = user.pendingState;
           //POST TASK OR MEETING TO GOOGLE CAL
           if(state.invitees.length === 0){
             //POST TASK
-            taskPath(user).then((flag) => {
+            taskPath(user, state).then((flag) => {
               if(flag){
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
                 res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post task to calendar")
@@ -377,9 +391,19 @@ app.post('/bot-test', function(req,res){
             });
           }else{
             //POST MEETING
-            meetingPath(user).then((flag) => {
+            meetingPath(user, state).then((flag) => {
               console.log("FLAG", flag);
               if(flag){
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
                 res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post meeting to calendar")
@@ -394,7 +418,7 @@ app.post('/bot-test', function(req,res){
     }
 })
 
-function taskPath(user){
+function taskPath(user, state){
 
     if(user){
       //create calendar event here
@@ -432,10 +456,6 @@ function taskPath(user){
           }
         });
 
-        state.date = "";
-        state.time = "";
-        state.subject = "";
-
         console.log(typeof response.status);
 
         if(response.status === 200){
@@ -459,8 +479,7 @@ function taskPath(user){
 
 }
 
-//returns an array of objects with email keys and values. for use in calendar meeting post request
-function findAttendees(){
+function findAttendees(state){
 
   return models.User.find({})
   .then(function(users){
@@ -480,15 +499,13 @@ function findAttendees(){
 
 }
 
-function meetingPath(user){
-// taskPath(user).then((flag) => {
+function meetingPath(user, state){
 
     if(user){
-    //create calendar meeting here
-    return findAttendees()
+    return findAttendees(state)
     .then((attendees) => {
       console.log('ATTENDEES ARRAY: ', attendees);
-      
+
       var new_event = {
         "end": {
           "dateTime": "2017-07-20T12:30:00",
@@ -557,5 +574,5 @@ function meetingPath(user){
 app.listen(3000);
 
 module.exports = {
-      rtm
+  rtm
 }

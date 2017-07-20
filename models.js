@@ -8,6 +8,13 @@ var userSchema = mongoose.Schema({
     expiry_date: Number,
     email: String
   },
+  pendingState: {
+    subject: String,
+    date: String,
+    invitees: Array,
+    inviteesBySlackid: Array,
+    time: String,
+  },
   slack_ID: String,
   slack_Username: String,
   slack_Email: String,
@@ -15,17 +22,20 @@ var userSchema = mongoose.Schema({
 });
 
 var reminderSchema = mongoose.Schema({
+  // slack_DM_ID: String,
   subject: {
-    // required: true,
+    //required: true,
     type: String
   },
   day: {
-    // required: true,
+    //required: true,
     type: String
   },
   googCalID: String,
   reqID: String
 })
+
+
 
 var User = mongoose.model('User', userSchema);
 var Reminder = mongoose.model('Reminder', reminderSchema);
