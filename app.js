@@ -7,6 +7,8 @@ var WebClient = require('@slack/client').WebClient;
 var mongoose = require('mongoose');
 var models = require('./models');
 var axios = require('axios');
+var moment = require('moment');
+moment().format();
 
 
 var token = process.env.SLACK_SECRET || '';
@@ -152,7 +154,7 @@ var setInvitees = function(myString, state){
       myArray[index] = rtm.dataStore.getUserById(item).real_name;
     }
   });
-  console.log("this is new function", myArray);
+  //console.log("this is new function", myArray);
   return myArray.join(' ');
 }
 
@@ -196,14 +198,14 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
       else {
 
-          console.log('the first time it gets here');
+          //console.log('the first time it gets here');
 
           if(message.text.indexOf('schedule')!==-1){
-            console.log("calling new function");
+            //console.log("calling new function");
             message.text = setInvitees(message.text , user.pendingState);
             user.save();
             //message.text is a string of real life names
-            console.log("after function call", message.text);
+            //console.log("after function call", message.text);
           }
 
           var temp = encodeURIComponent(message.text);
@@ -499,25 +501,44 @@ function findAttendees(state){
 
 }
 
+function calculateEndTimeString(state){
+    //set up for default 30 minute meetings until api.ai is trained better
+    var meetingLength = 60;
+
+    var end =  state.date + 'T' + state.time;
+    var endMoment = moment(end);
+    endMoment.add(meetingLength, 'minute');
+    return endMoment;
+}
+
+function calculateStartTimeString(state){
+    var start =  state.date + 'T' + state.time;
+    var startMoment = moment(start);
+    return startMoment;
+}
+
 function meetingPath(user, state){
+
+    var start = calculateStartTimeString(state);
+    var end = calculateEndTimeString(state);
+    var subject = state.subject || 'DEFAULT MEETING SUBJECT';
 
     if(user){
     return findAttendees(state)
     .then((attendees) => {
       console.log('ATTENDEES ARRAY: ', attendees);
-
       var new_event = {
         "end": {
-          "dateTime": "2017-07-20T12:30:00",
+          "dateTime": end,
           "timeZone": "America/Los_Angeles"
         },
         "start": {
-          "dateTime": "2017-07-20T12:00:00",
+          "dateTime": start,
           "timeZone": "America/Los_Angeles"
         },
-        "summary": "MEETING",
-        "attendees": attendees,
-       "description": "ramma lamma ding dong. as always"
+        "summary": subject,
+        "attendees": attendees
+      //  "description": "ramma lamma ding dong. as always"
       }
       return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
       .then(function(response){
