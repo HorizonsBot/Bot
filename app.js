@@ -88,6 +88,7 @@ var dropdown_obj = {
 }
 
 // checking conflict
+
 var getWeekArray = function(date, time){
 
   console.log("entered getWeekArray");
