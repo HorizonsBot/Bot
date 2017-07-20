@@ -117,6 +117,12 @@ var getWeekArray = function(date, time){
 
   console.log("original weekArray", result);
 
+  result = result.filter(function(item){
+    var item = item.split(' ');
+    var time = parseInt(item[1].substring(0,2));
+    return (time>=9 && time<=18);
+  })
+
   return result;
 
 }  //returns week array
