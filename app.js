@@ -509,10 +509,17 @@ app.post('/bot-test', function(req,res) {
           console.log("access_token has expired", user);
           var googleAuthV = googleAuth();
           googleAuthV.setCredentials(user.googleAccount);
+<<<<<<< HEAD
           googleAuthV.refreshAccessToken(function(err, tokens) {
             console.log("enters this function first...", tokens);
             user.googleAccount = tokens;
             user.save(function(err) {
+=======
+          return googleAuthV.refreshAccessToken(function(err, tokens) {
+            console.log("enters this function first...", tokens);
+            user.googleAccount = tokens;
+            return user.save(function(err) {
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
               if(err){
                 console.log("blah blah err", err);
               } else {
@@ -538,10 +545,24 @@ app.post('/bot-test', function(req,res) {
             //POST TASK
             taskPath(user, state).then((flag) => {
               if(flag){
+<<<<<<< HEAD
+=======
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
                 res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post task to calendar")
               }
+<<<<<<< HEAD
               user.pendingState = {
                 subject: "",
                 date: "",
@@ -552,16 +573,32 @@ app.post('/bot-test', function(req,res) {
               user.save(function(err){
                 if(err)console.log(err);
               });
+=======
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
             });
           }else{
             //POST MEETING
             meetingPath(user, state).then((flag) => {
               console.log("FLAG", flag);
               if(flag){
+<<<<<<< HEAD
+=======
+                user.pendingState = {
+                  subject: "",
+                  date: "",
+                  time: "",
+                  invitees: [],
+                  inviteesBySlackid: [],
+                };
+                user.save(function(err){
+                  if(err)console.log(err);
+                });
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
                 res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
               }else{
                 res.send("Failed to post meeting to calendar")
               }
+<<<<<<< HEAD
               user.pendingState = {
                 subject: "",
                 date: "",
@@ -572,6 +609,8 @@ app.post('/bot-test', function(req,res) {
               user.save(function(err){
                 if(err)console.log(err);
               });
+=======
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
             });
           }
 
@@ -685,6 +724,7 @@ function calculateStartTimeString(state){
 
 
 function meetingPath(user, state){
+<<<<<<< HEAD
 
     var start = calculateStartTimeString(state);
     var end = calculateEndTimeString(state);
@@ -731,6 +771,54 @@ function meetingPath(user, state){
           }
         });
 
+=======
+
+    var start = calculateStartTimeString(state);
+    var end = calculateEndTimeString(state);
+    var subject = state.subject || 'DEFAULT MEETING SUBJECT';
+
+    if(user){
+    return findAttendees(state)
+    .then((attendees) => {
+      console.log('ATTENDEES ARRAY: ', attendees);
+      var new_event = {
+        "end": {
+          "dateTime": end,
+          "timeZone": "America/Los_Angeles"
+        },
+        "start": {
+          "dateTime": start,
+          "timeZone": "America/Los_Angeles"
+        },
+        "summary": subject,
+        "attendees": attendees
+      //  "description": "ramma lamma ding dong. as always"
+      }
+      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
+      .then(function(response){
+
+        console.log('RESPONSE', response.status);
+        console.log('THIS IS THE INFORMATION THE USER HAS', user);
+        console.log('this is the state', state);
+
+        var reminder = new models.Reminder({
+          subject: state.subject,
+          day: state.date,
+          googCalID: user.googleAccount.profile_ID,
+          reqID: user.slack_ID
+        })
+
+        console.log('this is the REMINDER', reminder);
+
+        reminder.save(function(err) {
+          if(err) {
+            console.log('there is an error', err);
+          } else {
+            console.log('saved reminder in mongo');
+          }
+        });
+
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
         if(response.status === 200){
           return true;
         }else{

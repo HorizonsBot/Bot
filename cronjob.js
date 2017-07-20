@@ -26,7 +26,11 @@ Reminder.find({}, function(err, reminders) {
         console.log('need to send RTM message here');
         User.findOne({slack_ID: reminder.reqID}, function(err, user) {
           console.log("TODAY, USER iS", user);
+<<<<<<< HEAD
           // rtm.sendMessage(`Reminder! You gotta remember to ${reminder.subject} today bro!`, user.slack_DM_ID)
+=======
+          rtm.sendMessage(`Reminder! You gotta remember to ${reminder.subject} today bro!`, user.slack_DM_ID)
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
           web.chat.postMessage(user.slack_DM_ID, `Reminder! You gotta remember to ${reminder.subject} today bro!`, function(){
             process.exit(0);
           })
@@ -40,7 +44,11 @@ Reminder.find({}, function(err, reminders) {
         })
       } else if ( tomDate === reminder.day ) {    //On day before due day of reminder, send Slack msg to app user
         User.findOne({slack_ID: reminder.reqID}, function(err, user) {
+<<<<<<< HEAD
           // rtm.sendMessage(`Reminder! You gotta remember to ${reminder.subject} tomorrow bro!`, user.slack_DM_ID)
+=======
+          rtm.sendMessage(`Reminder! You gotta remember to ${reminder.subject} tomorrow bro!`, user.slack_DM_ID)
+>>>>>>> 17e7e7fdc59a3df3b96f8f28eb86e40b0bf6143e
           web.chat.postMessage(user.slack_DM_ID, `Reminder! You gotta remember to ${reminder.subject} tomorrow bro!`, function(){
             process.exit(0);
           })
