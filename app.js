@@ -69,6 +69,7 @@ var dropdown_obj = {
            "actions": [
                {
                    "name": "alt_dates",
+<<<<<<< HEAD
                    "text": "Pick a different game...",
                    "type": "select",
                    "options": [
@@ -81,12 +82,38 @@ var dropdown_obj = {
                            "value": "date2"
                        }
                    ]
+=======
+                   "text": "Pick an alternate date and time...",
+                   "type": "select",
+                   "options": []
+               },
+               {
+                 "name": "confirm",
+                 "text": "Cancel",
+                 "type": "button",
+                 "value": "cancel"
+>>>>>>> e43c0801da3471e6d4c6ff9eb27ffb8cee26e15d
                }
            ]
        }
    ]
 }
 
+<<<<<<< HEAD
+=======
+function getObject(array){
+
+  var tempObj = dropdown_obj;
+  for(var i = 0 ;i < array.length; i++ ){
+    tempObj.attachments[0].actions[0].options.push({"text":array[i], "value":array[i]})
+  }
+
+  console.log('TEMPOBJ HERE ==>>> ', tempObj);
+  return tempObj;
+
+}
+
+>>>>>>> e43c0801da3471e6d4c6ff9eb27ffb8cee26e15d
 // checking conflict
 
 var getWeekArray = function(date, time){
@@ -214,11 +241,14 @@ var checkConflict = function(user){
 
           console.log("busyArray", busyArray);
 
-          var checkString = user.pendingState.date + ' ' + user.pendingState.time.substring(0,5);
+          var meetingString = user.pendingState.date + ' ' + user.pendingState.time.substring(0,5);
 
-          console.log("checkString", checkString);
+          console.log("checkString", meetingString);
 
-          if(busyArray.indexOf(checkString)===-1)return false; //  no conflict;
+          if(busyArray.indexOf(meetingString)===-1){
+            console.log("this is where i want to be");
+            return "noConflict"; //  no conflict;
+          }
 
           var flag1 = cutWeekArray(busyArray, user.pendingState);
 
@@ -235,6 +265,7 @@ var checkConflict = function(user){
       });
   })
   .then(function(flag1){
+    console.log(flag1);
     return flag1;
   })
   .catch(function(error){
@@ -297,21 +328,32 @@ var meetingHandler = function({result}, message, user){ //ccccc
     //////
 
     user.save(function(err, user){
-      var check = true;
       console.log("enter here after setting pendingState");
-      var flag = checkConflict(user);
-      console.log(flag);
-      if(flag===false)check=false;
-      obj.attachments[0].text = !check ?
-      `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`:
-      "CONFLICT BITCH" + flag;
-      web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
-        if (err) {
-          console.log('Error:', err);
-        } else {
-          console.log('Message sent: ', res);
+      checkConflict(user).then(flag1=>{
+        console.log(flag1);
+        if(flag1==='noConflict'){
+          obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
+          web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
+            if (err) {
+              console.log('Error:', err);
+            } else {
+              console.log('Message sent: ', res);
+            }
+          });
+        }else{
+          console.log("entered conflict");
+          var targetObj = getObject(flag1);
+
+          web.chat.postMessage(message.channel, "Scheduler Bot", targetObj,function(err, res) {
+            if (err) {
+              console.log('Error:', err);
+            } else {
+              console.log('Message sent: ', res);
+            }
+          });
         }
       });
+
     })
   }
   else {
@@ -506,6 +548,19 @@ app.get('/connect/callback', function(req, res){
 
 })
 
+function clearState (user){
+  user.pendingState = {
+    subject: "",
+    date: "",
+    time: "",
+    invitees: [],
+    inviteesBySlackid: [],
+  };
+  user.save(function(err){
+    if(err)console.log(err);
+  });
+}
+
 app.post('/bot-test', function(req,res) {
 
   var data = JSON.parse(req.body.payload);
@@ -514,19 +569,10 @@ app.post('/bot-test', function(req,res) {
   if(data.actions[0].value==="cancel"){
       models.User.findOne({slack_ID: JSON.parse(req.body.payload).user.id})
       .then(function(user){
-        user.pendingState = {
-          subject: "",
-          date: "",
-          time: "",
-          invitees: [],
-          inviteesBySlackid: [],
-        };
-        user.save(function(err){
-          if(err)console.log(err);
-        });
+        clearState(user)
       })
       res.send("Your request has been cancelled. " + ':pray: :100: :fire:');
-    }
+  }
 
   else{
       var curTime = Date.now();
@@ -538,10 +584,10 @@ app.post('/bot-test', function(req,res) {
           console.log("access_token has expired", user);
           var googleAuthV = googleAuth();
           googleAuthV.setCredentials(user.googleAccount);
-          googleAuthV.refreshAccessToken(function(err, tokens) {
+          return googleAuthV.refreshAccessToken(function(err, tokens) {
             console.log("enters this function first...", tokens);
             user.googleAccount = tokens;
-            user.save(function(err) {
+            return user.save(function(err) {
               if(err){
                 console.log("blah blah err", err);
               } else {
@@ -567,43 +613,48 @@ app.post('/bot-test', function(req,res) {
             //POST TASK
             taskPath(user, state).then((flag) => {
               if(flag){
-                user.pendingState = {
-                  subject: "",
-                  date: "",
-                  time: "",
-                  invitees: [],
-                  inviteesBySlackid: [],
-                };
-                user.save(function(err){
-                  if(err)console.log(err);
-                });
+                clearState(user);
                 res.send("Task has been added to your calendar " + ':pray: :100: :fire:');
               }else{
+                clearState(user);
                 res.send("Failed to post task to calendar")
               }
             });
-          }else{
+          }  //for task
+          else{ // for meeting
             //POST MEETING
-            meetingPath(user, state).then((flag) => {
-              console.log("FLAG", flag);
-              if(flag){
-                user.pendingState = {
-                  subject: "",
-                  date: "",
-                  time: "",
-                  invitees: [],
-                  inviteesBySlackid: [],
-                };
-                user.save(function(err){
-                  if(err)console.log(err);
+            if(data.actions[0].name==='alt_dates'){
+              console.log("i want this", data.actions[0].selected_options );
+              var mo = data.actions[0].selected_options[0];
+              var mo1 = mo.value.split(' ');
+              user.pendingState.date = mo1[0];
+              user.pendingState.time = mo1[1] + ":00";
+              user.save(function(err,user){
+                meetingPath(user, user.pendingState).then((flag) => {
+                  console.log("FLAG", flag);
+                  if(flag){
+                    clearState(user);
+                    res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+                  }else{
+                    clearState(user);
+                    res.send("Failed to post meeting to calendar")
+                  }
                 });
-                res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
-              }else{
-                res.send("Failed to post meeting to calendar")
-              }
-            });
+              });
+            } // for meeting with conflicts
+            else{
+              meetingPath(user, state).then((flag) => {
+                console.log("FLAG", flag);
+                if(flag){
+                  clearState(user);
+                  res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+                }else{
+                  clearState(user);
+                  res.send("Failed to post meeting to calendar")
+                }
+              });
+            } //for meeting without conflicts
           }
-
       })
       .catch(function(error){
         console.log("********error********", error);
