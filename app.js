@@ -145,18 +145,14 @@ var meetingFunction = function(data, message, state){
 }
 
 var setInvitees = function(myString, state){
-
   var myArray = myString.split(' ');
-
   myArray.forEach(function(item,index){
     if(item[0]==='<'){
       item = item.substring(2,item.length-1);
       state.inviteesBySlackid.push(item);
-      //console.log("reached here", item, rtm.dataStore.getUserById(item));
       myArray[index] = rtm.dataStore.getUserById(item).real_name;
     }
   });
-  //console.log("this is new function", myArray);
   return myArray.join(' ');
 }
 
@@ -201,22 +197,9 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
       else {
 
-          //console.log('the first time it gets here');
-
           if(message.text.indexOf('schedule')!==-1){
-            //console.log("calling new function");
             message.text = setInvitees(message.text , user.pendingState);
             user.save();
-            //message.text is a string of real life names
-            //console.log("after function call", message.text);
-          }
-
-          if(message.text.indexOf('schedule')!==-1){
-            console.log("calling new function");
-            message.text = setInvitees(message.text , user.pendingState);
-            user.save();
-            //message.text is a string of real life names
-            console.log("after function call", message.text);
           }
 
           var temp = encodeURIComponent(message.text);
