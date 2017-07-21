@@ -1,3 +1,4 @@
+'use strict';
 var express = require('express');
 var bodyParser = require('body-parser');
 var google = require('googleapis');
@@ -199,13 +200,11 @@ var checkConflict = function(user){
           var email = encodeURIComponent(attendee.email);
           var calendarStart = new Date().toISOString();
           var timeMin = encodeURIComponent(calendarStart);
+          var timeMax = encodeURIComponent(moment(calendarStart).add(7, 'day').toISOString());
+          console.log("timeMIN", timeMin, "timeMax", timeMax);
           var accessToken = encodeURIComponent(attendee.access_token);
-          calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
+          calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMax=${timeMax}&timeMin=${timeMin}&timeZone=America%2FLos_Angeles&access_token=${accessToken}`))
       })
-      var calendarStart = new Date().toISOString();
-      
-      var timeMin = encodeURIComponent(calendarStart);
-      calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${user.googleAccount.email}/events?timeMin=${timeMin}&access_token=${user.googleAccount.access_token}`))
 
 
       return Promise.all(calendarPromises)
@@ -305,7 +304,7 @@ var meetingHandler = function({result}, message, user){ //ccccc
 
   // if all present execute if condition else go to else
 
-  state = user.pendingState;
+  var state = user.pendingState;
 
   if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
     //set state
@@ -319,7 +318,7 @@ var meetingHandler = function({result}, message, user){ //ccccc
     })
 
     //////
-
+    user.pendingState = state;
     user.save(function(err, user){
       console.log("enter here after setting pendingState");
       checkConflict(user).then(flag1=>{
@@ -363,13 +362,14 @@ var meetingHandler = function({result}, message, user){ //ccccc
     if(result.parameters.invitees[0]){
       state.invitees = result.parameters.invitees;
     }
+    user.pendingState = state;
     user.save();
     rtm.sendMessage(result.fulfillment.speech, message.channel);
   }
 }
 
 var meetingFunction = function(data, message, user){ //ccccc
-  state = user.pendingState;
+  var state = user.pendingState;
   if(!state.date || !state.invitees[0] || !state.time){
     meetingHandler(data, message, user); //cccccc
   } else if(state.date && state.time && state.invitees[0]){
@@ -427,21 +427,22 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         web.chat.postMessage(message.channel,
           'Use this link to give access to your google cal account ' + process.env.DOMAIN + '/connect?auth_id='
           + user._id);
-          return;
+          return user;
       }
       else {
-
+          var promise = Promise.resolve(user);
           if(message.text.indexOf('schedule')!==-1){
             message.text = setInvitees(message.text , user.pendingState);
-            user.save();
+            promise = user.save()
           }
+          promise.then(function(user) {
+            var temp = encodeURIComponent(message.text);
 
-          var temp = encodeURIComponent(message.text);
-
-          axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
-            "headers": {
-              "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
-            },
+            return axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
+              "headers": {
+                "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+              },
+            })
           })
           .then(function({ data }){
 
@@ -579,7 +580,7 @@ app.post('/bot-test', function(req,res) {
           googleAuthV.setCredentials(user.googleAccount);
           return googleAuthV.refreshAccessToken(function(err, tokens) {
             console.log("enters this function first...", tokens);
-            user.googleAccount = tokens;
+            user.googleAccount = Object.assign({}, user.googleAccount, tokens)
             return user.save(function(err) {
               if(err){
                 console.log("blah blah err", err);
