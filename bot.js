@@ -9,26 +9,15 @@ var WebClient = require('@slack/client').WebClient;
 var token = process.env.SLACK_SECRET || '';
 var web = new WebClient(token);
 var rtm = new RtmClient(token);
-// rtm.start();
-
-var taskFunctions = require('./functions/task.js')(rtm, web);
-var meetingFunctions = require('./functions/meeting.js')(rtm, web);
 
 /* TASK */
-var taskPath = taskFunctions.taskPath;
-var taskHandler = taskFunctions.taskHandler;
-var taskFunction = taskFunctions.taskFunction;
+var {taskPath, taskHandler, taskFunction} = require('./functions/task')(rtm, web);
 
 /* MEETING */
-var meetingHandler = meetingFunctions.meetingHandler;
-var meetingFunction = meetingFunctions.meetingFunction;
-var setInvitees = meetingFunctions.setInvitees;
-var meetingPath = meetingFunctions.meetingPath;
-var findAttendees = meetingFunctions.findAttendees;
+var {meetingHandler, meetingFunction, setInvitees, meetingPath, findAttendees} = require('./functions/meeting')(rtm, web);
 
 
-
-// ON EVERY MEESAGE EVENT WITH SLACK
+// EVENT LISTENER on EVERY SLACK MEESAGE
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
 
   var dm = rtm.dataStore.getDMByUserId(message.user);

@@ -1,9 +1,7 @@
 var axios = require('axios');
-var objects = require('../objects/index.js');
+var {dropdown_obj} = require('../objects');
 var mongoose = require('mongoose');
 var models = require('../models');
-
-var dropdown_obj = objects.dropdown_obj;
 
 
 module.exports = function(rtm, web) {

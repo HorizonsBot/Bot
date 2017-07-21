@@ -1,10 +1,7 @@
 var axios = require('axios');
-var objects = require('../objects/index.js');
+var {obj} = require('../objects');
 var mongoose = require('mongoose');
 var models = require('../models');
-
-var obj = objects.obj;
-
 
 module.exports = function(rtm, web) {
 
@@ -49,10 +46,10 @@ module.exports = function(rtm, web) {
           console.log(typeof response.status);
 
           if(response.status === 200){
-            console.log('fuck you');
+            console.log('yayayayayaya');
             return true;
           }else{
-            console.log('yay');
+            console.log('nonononono');
             return false;
           }
 

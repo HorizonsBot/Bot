@@ -1,17 +1,18 @@
 // PACKAGES
-
 var { web, rtm, taskPath } = require('./bot.js');
 var express = require('express');
 var bodyParser = require('body-parser');
 var google = require('googleapis');
-var mongoose = require('mongoose');
 var moment = require('moment');
-
-// CONNECTION TO MLAB DB
+moment().format();
+var mongoose = require('mongoose');
 mongoose.connect(process.env.MONGODB_URI);
 
-var generalFunctions = require('./functions/general.js');
-var conflictFunctions = require('./functions/conflict.js');
+/* GENERAL FUNCTIONS */
+var {clearState, googleAuth, calculateStartTimeString, calculateEndTimeString} = require('./functions/general.js');
+
+/* CONFLICT FUNCTIONS */
+var {getWeekArray, cutWeekArray, limitWeekArray, checkConflict, getAlternativeTimes} = require('./functions/conflict.js');
 
 // REQUIRED SOURCE CHECKIES
 var REQUIRED_ENV = "SLACK_SECRET MONGODB_URI GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DOMAIN".split(" ");
@@ -23,10 +24,6 @@ REQUIRED_ENV.forEach(function(el) {
   }
 });
 
-// ??????????????????
-moment().format();    // <<<---- what does this do??. maybe have to put in other function files.. NOT SURE IF NECESSARY
-// ??????????????????
-
 // STARTING EXPRESS SERVER
 var app = express();
 
@@ -34,21 +31,6 @@ var app = express();
 var plus = google.plus('v1')
 var OAuth2 = google.auth.OAuth2;
 var models = require('./models');
-
-
-// IMPORTING FUNCTIONS    //ask if the function like meetingFunction is only used over in meeting.js ==> do i still need to import it here??
-/* GENERAL */
-var clearState = generalFunctions.clearState;
-var googleAuth = generalFunctions.googleAuth;
-var calculateStartTimeString = generalFunctions.calculateStartTimeString;
-var calculateEndTimeString = generalFunctions.calculateEndTimeString;
-
-/* CONFLICTS */
-var getWeekArray = conflictFunctions.getWeekArray;
-var cutWeekArray = conflictFunctions.cutWeekArray;
-var limitWeekArray = conflictFunctions.limitWeekArray;
-var checkConflict = conflictFunctions.checkConflict;
-var getAlternativeTimes = conflictFunctions.getAlternativeTimes;
 
 // ROUTES
 app.use(bodyParser.urlencoded({ extended: false }));
