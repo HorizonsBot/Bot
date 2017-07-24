@@ -81,6 +81,7 @@ module.exports = function(rtm, web) {
     }
   }
 
+  // Returns a string that contain the real names of each slack user
   var setInvitees = function(myString, state){
     var myArray = myString.split(' ');
     myArray.forEach(function(item,index){

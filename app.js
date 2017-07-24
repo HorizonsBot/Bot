@@ -190,4 +190,3 @@ app.post('/bot-test', function(req,res) {
 })
 
 app.listen(3000);
-rtm.start();
